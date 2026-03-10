@@ -8,6 +8,13 @@ node_modules/
 dist/
 web-build/
 expo-env.d.ts
+node_modules
+.env
+google-services.json
+.parcel-cache
+dist
+build
+*.log
 
 # Native
 .kotlin/
