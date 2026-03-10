@@ -53,9 +53,7 @@
       "expo-secure-store"
     ],
     "extra": {
-      "eas": {
-        "projectId": "placeholder-driver-project-id"
-      }
+      "eas": {}
     },
     "web": {
       "favicon": "./assets/favicon.png"
