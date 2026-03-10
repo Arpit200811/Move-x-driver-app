@@ -1,8 +1,8 @@
-import { registerRootComponent } from 'expo';
+// index.js (using require to bypass ESM hoisting issues)
+require('./src/polyfills'); 
 
-import App from './App';
+const { registerRootComponent } = require('expo');
+const { default: App } = require('./App');
 
-// registerRootComponent calls AppRegistry.registerComponent('main', () => App);
-// It also ensures that whether you load the app in Expo Go or in a native build,
-// the environment is set up appropriately
+// Register the root component
 registerRootComponent(App);

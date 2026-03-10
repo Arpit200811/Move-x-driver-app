@@ -12,14 +12,49 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.movex.driver",
+      "config": {
+        "googleMapsApiKey": "AIza_placeholder_google_maps_key"
+      },
+      "infoPlist": {
+        "UIBackgroundModes": [
+          "location",
+          "fetch"
+        ]
+      }
     },
     "android": {
+      "package": "com.movex.driver",
+      "config": {
+        "googleMaps": {
+          "apiKey": "AIza_placeholder_google_maps_key"
+        }
+      },
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_BACKGROUND_LOCATION"
+      ],
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/android-icon-foreground.png",
-        "backgroundImage": "./assets/android-icon-background.png",
-        "monochromeImage": "./assets/android-icon-monochrome.png"
+        "backgroundColor": "#111827",
+        "foregroundImage": "./assets/android-icon-foreground.png"
+      }
+    },
+    "plugins": [
+      "expo-notifications",
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Allow MoveX to use your location to track deliveries in the background.",
+          "isAndroidBackgroundLocationEnabled": true
+        }
+      ],
+      "expo-secure-store"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "placeholder-driver-project-id"
       }
     },
     "web": {
