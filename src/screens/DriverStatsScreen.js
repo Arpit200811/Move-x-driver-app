@@ -8,7 +8,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTranslation } from 'react-i18next';
 import api from '../services/api';
-import Animated, { FadeInUp, FadeInDown, SlideInRight } from 'react-native-reanimated';
+
 
 const { width } = Dimensions.get('window');
 
@@ -48,7 +48,7 @@ export default function DriverStatsScreen({ navigation }) {
     }
 
     const StatCard = ({ title, value, icon: Icon, color, delay }) => (
-        <Animated.View entering={FadeInUp.delay(delay)} style={styles.statCardWrapper}>
+        <View style={styles.statCardWrapper}>
             <View style={styles.statCardInner}>
                 <View style={[styles.statIconBox, { backgroundColor: `${color}20` }]}>
                     <Icon size={20} color={color} />
@@ -56,7 +56,7 @@ export default function DriverStatsScreen({ navigation }) {
                 <Text style={styles.statCardLabel}>{title}</Text>
                 <Text style={styles.statCardValue}>{value}</Text>
             </View>
-        </Animated.View>
+        </View>
     );
 
     return (
@@ -80,7 +80,7 @@ export default function DriverStatsScreen({ navigation }) {
                     refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#2563EB" />}
                 >
                     {/* Tier Progress Widget */}
-                    <Animated.View entering={FadeInDown} style={styles.tierContainer}>
+                    <View style={styles.tierContainer}>
                          <LinearGradient 
                             colors={['#1e293b', '#0f172a']} 
                             style={styles.tierGradient}
@@ -116,7 +116,7 @@ export default function DriverStatsScreen({ navigation }) {
                                 * {stats?.tier?.pointsNeeded} {t('points_to_next_tier')}
                             </Text>
                          </LinearGradient>
-                    </Animated.View>
+                    </View>
 
                     {/* Quick Stats Grid */}
                     <View style={styles.statsGrid}>
@@ -151,7 +151,7 @@ export default function DriverStatsScreen({ navigation }) {
                     </View>
 
                     {/* Achievement Section */}
-                    <Animated.View entering={FadeInUp.delay(500)} style={styles.achievementSection}>
+                    <View style={styles.achievementSection}>
                         <Text style={styles.sectionLabel}>{t('performance_metrics')}</Text>
                         <TouchableOpacity 
                             style={styles.achievementCard}
@@ -166,10 +166,10 @@ export default function DriverStatsScreen({ navigation }) {
                             </View>
                             <ChevronRight size={20} color="#fff" opacity={0.2} />
                         </TouchableOpacity>
-                    </Animated.View>
+                    </View>
 
                     {/* Weekly Insight (Conceptual) */}
-                    <Animated.View entering={FadeInUp.delay(600)} style={styles.insightCard}>
+                    <View style={styles.insightCard}>
                          <View style={styles.insightHeader}>
                             <BarChart3 size={20} color="#fff" style={{ marginRight: 12 }} />
                             <Text style={styles.insightTitle}>{t('weekly_optimization')}</Text>
@@ -177,7 +177,7 @@ export default function DriverStatsScreen({ navigation }) {
                          <Text style={styles.insightText}>
                              Aapka acceptance rate picchle hafte ke muqable 12% bada hai. Gold tier par pahunchne ke liye agle 10 trips time par complete karein.
                          </Text>
-                    </Animated.View>
+                    </View>
                 </ScrollView>
             </SafeAreaView>
         </View>

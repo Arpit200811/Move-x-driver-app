@@ -5,7 +5,7 @@ import api from '../services/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTranslation } from 'react-i18next';
-import Animated, { useSharedValue, useAnimatedStyle, withRepeat, withTiming, withSequence } from 'react-native-reanimated';
+
 
 const { width } = Dimensions.get('window');
 
@@ -138,13 +138,9 @@ export default function DriverOrderHistoryScreen({ navigation }) {
 }
 
 function SkeletonItem() {
-    const opacity = useSharedValue(0.3);
-    useEffect(() => {
-        opacity.value = withRepeat(withSequence(withTiming(0.6, { duration: 1000 }), withTiming(0.3, { duration: 1000 })), -1, true);
-    }, []);
-    const style = useAnimatedStyle(() => ({ opacity: opacity.value }));
+    // Animations disabled for stability
     return (
-        <Animated.View style={[styles.skeletonCard, style]}>
+        <View style={[styles.skeletonCard, { opacity: 0.5 }]}>
             <View style={{ flexDirection: 'row' }}>
                 <View style={styles.skeletonIcon} />
                 <View style={{ flex: 1, marginLeft: 16 }}>
@@ -153,7 +149,7 @@ function SkeletonItem() {
                 </View>
             </View>
             <View style={[styles.skeletonLine, { marginTop: 20 }]} />
-        </Animated.View>
+        </View>
     );
 }
 

@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, Dimensions, FlatList, TouchableOpacity, SafeAre
 import { ChevronRight, Zap, Target, Shield, ArrowRight } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import Animated, { FadeIn, FadeOut, SlideInRight } from 'react-native-reanimated';
+
 
 const { width, height } = Dimensions.get('window');
 
@@ -62,11 +62,11 @@ export default function OnboardingScreen({ navigation }) {
                 }}
                 renderItem={({ item }) => (
                     <View style={styles.slide}>
-                        <Animated.View entering={FadeIn.delay(300)} style={styles.iconBox}>
+                        <View style={styles.iconBox}>
                             {item.icon}
-                        </Animated.View>
-                        <Animated.Text entering={SlideInRight.delay(200)} style={styles.title}>{item.title}</Animated.Text>
-                        <Animated.Text entering={FadeIn.delay(400)} style={styles.desc}>{item.desc}</Animated.Text>
+                        </View>
+                        <Text style={styles.title}>{item.title}</Text>
+                        <Text style={styles.desc}>{item.desc}</Text>
                     </View>
                 )}
                 keyExtractor={(item) => item.id}
