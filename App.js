@@ -65,9 +65,19 @@ class ErrorBoundary extends React.Component {
 
 export default function App() {
   React.useEffect(() => {
-    registerForPushNotificationsAsync().catch(console.error);
+    // SECURITY: Delay native module initialization to prevent boot-time bridge congestion
+    const timer = setTimeout(() => {
+        console.log('[BOOT] Initializing Remote Systems...');
+        registerForPushNotificationsAsync().catch(err => {
+            console.error('[BOOT ERROR] Push Subsystem:', err);
+        });
+    }, 5000); // 5 second grace period
+    
     const sub = subscribeToNotifications();
-    return () => { if (sub && sub.remove) sub.remove(); };
+    return () => { 
+        clearTimeout(timer);
+        if (sub && sub.remove) sub.remove(); 
+    };
   }, []);
 
   return (

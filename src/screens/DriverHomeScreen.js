@@ -174,10 +174,12 @@ export default function DriverHomeScreen({ navigation }) {
           setDriver(parsed);
           if (parsed.isOnline) {
             try {
-              // Delayed start to prevent race conditions during boot
+              // SECURITY: Drastically delayed start (5 seconds) to ensure Dashboard is fully stable
+              // and Map WebView has loaded.
               setTimeout(() => {
+                  console.log('[DASHBOARD] Stabilizing Telemetry...');
                   startBackgroundLocationUpdates().catch(e => console.error('BG_LOC_CRASH:', e));
-              }, 2000);
+              }, 5000);
             } catch (err) {
               console.log('Background task start error');
             }

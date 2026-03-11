@@ -32,47 +32,29 @@ export default function DriverNavigator() {
   React.useEffect(() => {
     (async () => {
       try {
-        // DEFENSIVE CHECK: Ensure native modules don't kill the app on boot
+        // Wait 500ms to allow Native bridge to fully hydrate
+        await new Promise(resolve => setTimeout(resolve, 500));
+
+        // Get Essential Data Only
         const onboarded = await AsyncStorage.getItem('onboarding_complete').catch(() => 'true');
         let token = null;
         try {
-           token = await SecureStore.getItemAsync('movex_token');
+           token = await SecureStore.getItemAsync('movex_token').catch(() => null);
         } catch (e) { console.error('SecureStore unavailable'); }
 
         if (!onboarded) {
             setInitialRoute('Onboarding');
         } else if (token) {
-            // Check for Biometrics but be extremely careful
-            const bioEnabled = await AsyncStorage.getItem('biometric_enabled');
-            if (bioEnabled === 'true') {
-                try {
-                    const hasHardware = await LocalAuthentication.hasHardwareAsync();
-                    const isEnrolled = await LocalAuthentication.isEnrolledAsync();
-                    
-                    if (hasHardware && isEnrolled) {
-                        const result = await LocalAuthentication.authenticateAsync({
-                            promptMessage: 'Authorize Mission Access',
-                            fallbackLabel: 'Use System Passcode',
-                            disableDeviceFallback: false,
-                        });
-                        if (result.success) setInitialRoute('DriverHome');
-                        else setInitialRoute('DriverLogin');
-                    } else {
-                        setInitialRoute('DriverHome');
-                    }
-                } catch (bioErr) {
-                    console.error('Biometric Auth Failure during boot:', bioErr);
-                    setInitialRoute('DriverHome'); // Fallback to Home if bio fails natively
-                }
-            } else {
-                setInitialRoute('DriverHome');
-            }
+            // SAFE BOOT: Don't run Biometrics during route calculation. 
+            // Bio check will happen inside DriverHomeScreen if needed, or forced on Login.
+            // For now, if we have a token, we go to DriverHome.
+            setInitialRoute('DriverHome');
         } else {
             setInitialRoute('DriverLogin');
         }
       } catch (err) {
         console.error('CRITICAL NAVIGATOR CRASH:', err);
-        setInitialRoute('DriverLogin'); // Absolute fallback
+        setInitialRoute('DriverLogin');
       }
     })();
   }, []);
