@@ -8,24 +8,25 @@ import { API_URL as ENV_API_URL, SOCKET_URL as ENV_SOCKET_URL } from '@env';
 const DEVICE_IP = null;
 
 const getBaseUrl = () => {
-  // Priority 1: react-native-dotenv from @env
-  if (ENV_API_URL) return ENV_API_URL;
+  // Use Render as the absolute source of truth if not local debugging
+  const PROD_URL = 'https://move-x-backend.onrender.com/api';
+  
+  if (ENV_API_URL && !ENV_API_URL.includes('localhost')) return ENV_API_URL;
 
   if (DEVICE_IP) {
     return `http://${DEVICE_IP}:5000/api`;
   }
-  if (Platform.OS === 'android') {
-    return 'https://move-x-backend.onrender.com/api'; // Live Backend
-  }
-  return 'https://move-x-backend.onrender.com/api'; // Live Backend
+  return PROD_URL;
 };
 
 export const API_URL = getBaseUrl();
+console.log('[NETWORK] Base System URL:', API_URL);
+
 export const SOCKET_URL = ENV_SOCKET_URL || API_URL.replace('/api', '');
 
 const api = axios.create({
   baseURL: API_URL,
-  timeout: 30000,
+  timeout: 45000, // Increased to 45s for Render wake-up
 });
 
 api.interceptors.request.use(async (config) => {
@@ -39,7 +40,9 @@ api.interceptors.request.use(async (config) => {
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    console.error('[API Error]', error.config?.url, error.response?.status, error.response?.data || error.message);
+    const fullUrl = error.config?.baseURL + (error.config?.url || '');
+    console.error('[API Error Source]:', fullUrl);
+    console.error('[API Error Info]:', error.response?.status, error.response?.data || error.message);
     return Promise.reject(error);
   }
 );
