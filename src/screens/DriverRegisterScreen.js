@@ -6,19 +6,29 @@ import api from '../services/api';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTranslation } from 'react-i18next';
 import * as ImagePicker from 'expo-image-picker';
+import { useForm, Controller } from 'react-hook-form';
+import { yupResolver } from '@hookform/resolvers/yup';
+import * as yup from 'yup';
+import Toast from 'react-native-toast-message';
+
+const registerSchema = yup.object().shape({
+  name: yup.string().required('Full name is required').min(2, 'Name must be at least 2 characters'),
+  phone: yup.string().required('Phone number is required').min(10, 'Phone must be at least 10 digits').matches(/^\d+$/, 'Numeric characters only'),
+  vehicle: yup.string().required('Vehicle model & year is required'),
+  licenseNumber: yup.string().required('Driver license number is required'),
+});
 
 export default function DriverRegisterScreen({ navigation }) {
   const { t } = useTranslation();
-  const [form, setForm] = useState({
-    name: '',
-    phone: '',
-    countryCode: '+91',
-    countryFlag: '🇮🇳',
-    vehicle: '',
-    licenseNumber: '',
-    kycLicenseUrl: null,
-    kycIdUrl: null
+  const { control, handleSubmit, formState: { errors } } = useForm({
+    resolver: yupResolver(registerSchema),
+    defaultValues: { name: '', phone: '', vehicle: '', licenseNumber: '' },
+    mode: 'onChange'
   });
+  const [countryCode, setCountryCode] = useState('+91');
+  const [countryFlag, setCountryFlag] = useState('🇮🇳');
+  const [kycLicenseUrl, setKycLicenseUrl] = useState(null);
+  const [kycIdUrl, setKycIdUrl] = useState(null);
   const [loading, setLoading] = useState(false);
   const [licenseUploaded, setLicenseUploaded] = useState(false);
   const [idUploaded, setIdUploaded] = useState(false);
@@ -34,30 +44,30 @@ export default function DriverRegisterScreen({ navigation }) {
 
   const docsUploaded = licenseUploaded && idUploaded;
 
-  const handleRegister = async () => {
-    if (!form.name || !form.phone || !form.vehicle) {
-      return Alert.alert(t('input_error', 'Input Error'), t('verification_incomplete_desc', 'Please fill in all the required details.'));
-    }
-    
+  const handleRegister = async (data) => {
+    require('react-native').Keyboard.dismiss();
     if (!docsUploaded) {
-        return Alert.alert(t('verification_error', 'Verification Required'), t('id_verification_required_desc', 'Please upload all the required documents for verification.'));
+        Toast.show({ type: 'error', text1: String(t('verification_required', 'Verification Required')), text2: 'Please upload all the required documents for verification.' });
+        return;
     }
 
     setLoading(true);
     try {
-      const cleanPhone = `${form.countryCode}${form.phone.trim()}`;
+      const cleanPhone = `${countryCode}${String(data.phone || '').trim()}`;
       const res = await api.post('/auth/driver-apply', {
-        ...form,
-        name: form.name.trim(),
-        phone: cleanPhone
+        ...data,
+        name: String(data.name || '').trim(),
+        phone: cleanPhone,
+        kycLicenseUrl,
+        kycIdUrl
       });
 
       console.log('Driver application result:', res.data);
 
       Alert.alert(
-        t('application_submitted', 'Application Submitted'),
-        t('application_success_desc', { name: form.name }) || 'Thank you for applying. Our team will review your details and contact you shortly.',
-        [{ text: t('done', 'Done'), onPress: () => navigation.navigate('DriverLogin') }]
+        String(t('application_submitted', 'Application Submitted')),
+        String(t('application_success_desc', { name: data.name }) || 'Thank you for applying. Our team will review your details and contact you shortly.'),
+        [{ text: String(t('done', 'Done')), onPress: () => navigation.navigate('DriverLogin') }]
       );
     } catch (error) {
       console.error("Driver Registration Error Detail:", error?.response?.data || error.message);
@@ -68,7 +78,7 @@ export default function DriverRegisterScreen({ navigation }) {
         else errMessage = error.message || t('submission_error_desc');
       }
       
-      Alert.alert(t('submission_failed', 'Submission Failed'), errMessage);
+      Alert.alert(String(t('submission_failed', 'Submission Failed')), String(errMessage));
     } finally {
       setLoading(false);
     }
@@ -92,34 +102,49 @@ export default function DriverRegisterScreen({ navigation }) {
 
       setLoading(true);
       try {
-          const localUri = pickerResult.assets[0].uri;
-          const filename = localUri.split('/').pop();
+          const localUri = Platform.OS === 'android' ? pickerResult.assets[0].uri : pickerResult.assets[0].uri.replace('file://', '');
+          const filename = pickerResult.assets[0].uri.split('/').pop();
           const match = /\.(\w+)$/.exec(filename);
           const type = match ? `image/${match[1]}` : 'image/jpeg';
 
           const formData = new FormData();
-          formData.append('file', { uri: localUri, name: filename, type });
+          // @ts-ignore
+          formData.append('file', {
+            uri: Platform.OS === 'android' ? pickerResult.assets[0].uri : pickerResult.assets[0].uri.replace('file://', ''),
+            name: filename,
+            type
+          });
 
           const res = await api.post('/upload/public', formData, {
-              headers: { 'Content-Type': 'multipart/form-data' },
-              timeout: 30000,
+              headers: { 
+                  'Accept': 'application/json',
+                  'Content-Type': 'multipart/form-data',
+              },
+              timeout: 60000,
           });
 
           if (res.data.success) {
               if (docType === 'license') {
-                  setForm(prev => ({ ...prev, kycLicenseUrl: res.data.url }));
+                  setKycLicenseUrl(res.data.url);
                   setLicenseUploaded(true);
-                  Alert.alert(t('license_stored'), t('license_securely_stored_desc'));
+                  Toast.show({ type: 'success', text1: 'Success', text2: 'License uploaded successfully' });
               } else {
-                  setForm(prev => ({ ...prev, kycIdUrl: res.data.url }));
+                  setKycIdUrl(res.data.url);
                   setIdUploaded(true);
-                  Alert.alert(t('id_stored'), t('id_securely_stored_desc'));
+                  Toast.show({ type: 'success', text1: 'Success', text2: 'ID uploaded successfully' });
               }
           } else {
               throw new Error('Server rejected the upload');
           }
       } catch (err) {
-          Alert.alert('Upload Error', `Failed to upload ${docType === 'license' ? 'license' : 'ID card'}: ${err.message}`);
+          console.error("DEBUG: Upload Error Context:", {
+            endpoint: '/upload/public',
+            errorMessage: err.message,
+            stack: err.stack,
+            config: err.config,
+            response: err.response?.data
+          });
+          Toast.show({ type: 'error', text1: 'Upload Error', text2: 'Failed to upload document: ' + err.message });
       } finally {
           setLoading(false);
       }
@@ -145,38 +170,54 @@ export default function DriverRegisterScreen({ navigation }) {
 
             <View style={styles.formCard}>
                 <SectionTitle title={t('personal_details', 'Personal Details')} icon={User} />
-                <View style={styles.inputWrapper}>
+                <View style={[styles.inputWrapper, errors.name && { borderColor: '#ef4444' }]}>
                     <User size={18} color="#2563EB" />
-                    <TextInput
-                        style={styles.input}
-                        placeholder={t('full_name', 'Full Name')}
-                        placeholderTextColor="#94a3b8"
-                        value={form.name}
-                        onChangeText={(v) => setForm({ ...form, name: v })}
+                    <Controller
+                        control={control}
+                        name="name"
+                        render={({ field: { onChange, onBlur, value } }) => (
+                            <TextInput
+                                style={styles.input}
+                                placeholder={t('full_name', 'Full Name')}
+                                placeholderTextColor="#94a3b8"
+                                value={value}
+                                onChangeText={onChange}
+                                onBlur={onBlur}
+                            />
+                        )}
                     />
                 </View>
+                {errors.name && <Text style={{ color: '#ef4444', fontSize: 11, marginTop: -10, marginBottom: 15, marginLeft: 15, fontWeight: 'bold' }}>{errors.name.message}</Text>}
 
                 <View style={styles.phoneRow}>
                     <TouchableOpacity 
                         style={styles.countryPicker}
                         onPress={() => setShowPicker(!showPicker)}
                     >
-                        <Text style={styles.countryFlag}>{form.countryFlag}</Text>
-                        <Text style={styles.countryCode}>{form.countryCode}</Text>
+                        <Text style={styles.countryFlag}>{countryFlag}</Text>
+                        <Text style={styles.countryCode}>{countryCode}</Text>
                     </TouchableOpacity>
                     
-                    <View style={styles.phoneInputBox}>
+                    <View style={[styles.phoneInputBox, errors.phone && { borderColor: '#ef4444' }]}>
                         <Phone size={18} color="#2563EB" />
-                        <TextInput
-                            style={styles.input}
-                            placeholder={t('phone_number', 'Phone Number')}
-                            placeholderTextColor="#94a3b8"
-                            keyboardType="phone-pad"
-                            value={form.phone}
-                            onChangeText={(v) => setForm({ ...form, phone: v })}
+                        <Controller
+                            control={control}
+                            name="phone"
+                            render={({ field: { onChange, onBlur, value } }) => (
+                                <TextInput
+                                    style={styles.input}
+                                    placeholder={t('phone_number', 'Phone Number')}
+                                    placeholderTextColor="#94a3b8"
+                                    keyboardType="phone-pad"
+                                    value={value}
+                                    onChangeText={onChange}
+                                    onBlur={onBlur}
+                                />
+                            )}
                         />
                     </View>
                 </View>
+                {errors.phone && <Text style={{ color: '#ef4444', fontSize: 11, marginTop: -10, marginBottom: 15, marginLeft: 15, fontWeight: 'bold' }}>{errors.phone.message}</Text>}
 
                 {showPicker && (
                     <View style={styles.pickerDropdown}>
@@ -185,7 +226,8 @@ export default function DriverRegisterScreen({ navigation }) {
                                 key={c.code} 
                                 style={styles.pickerItem}
                                 onPress={() => {
-                                    setForm({ ...form, countryCode: c.code, countryFlag: c.flag });
+                                    setCountryCode(c.code);
+                                    setCountryFlag(c.flag);
                                     setShowPicker(false);
                                 }}
                             >
@@ -198,26 +240,43 @@ export default function DriverRegisterScreen({ navigation }) {
                 )}
 
                 <SectionTitle title={t('vehicle_details', 'Vehicle Details')} icon={Car} />
-                <View style={[styles.inputWrapper, { marginBottom: 15 }]}>
+                <View style={[styles.inputWrapper, { marginBottom: 15 }, errors.vehicle && { borderColor: '#ef4444' }]}>
                     <Car size={18} color="#2563EB" />
-                    <TextInput
-                        style={styles.input}
-                        placeholder={t('vehicle_model', 'Vehicle Model & Year')}
-                        placeholderTextColor="#94a3b8"
-                        value={form.vehicle}
-                        onChangeText={(v) => setForm({ ...form, vehicle: v })}
+                    <Controller
+                        control={control}
+                        name="vehicle"
+                        render={({ field: { onChange, onBlur, value } }) => (
+                            <TextInput
+                                style={styles.input}
+                                placeholder={t('vehicle_model', 'Vehicle Model & Year')}
+                                placeholderTextColor="#94a3b8"
+                                value={value}
+                                onChangeText={onChange}
+                                onBlur={onBlur}
+                            />
+                        )}
                     />
                 </View>
-                <View style={[styles.inputWrapper, { marginBottom: 30 }]}>
+                {errors.vehicle && <Text style={{ color: '#ef4444', fontSize: 11, marginTop: -10, marginBottom: 15, marginLeft: 15, fontWeight: 'bold' }}>{errors.vehicle.message}</Text>}
+
+                <View style={[styles.inputWrapper, { marginBottom: 30 }, errors.licenseNumber && { borderColor: '#ef4444' }]}>
                     <FileText size={18} color="#2563EB" />
-                    <TextInput
-                        style={styles.input}
-                        placeholder={t('license_number', 'Driver License Number')}
-                        placeholderTextColor="#94a3b8"
-                        value={form.licenseNumber}
-                        onChangeText={(v) => setForm({ ...form, licenseNumber: v })}
+                    <Controller
+                        control={control}
+                        name="licenseNumber"
+                        render={({ field: { onChange, onBlur, value } }) => (
+                            <TextInput
+                                style={styles.input}
+                                placeholder={t('license_number', 'Driver License Number')}
+                                placeholderTextColor="#94a3b8"
+                                value={value}
+                                onChangeText={onChange}
+                                onBlur={onBlur}
+                            />
+                        )}
                     />
                 </View>
+                {errors.licenseNumber && <Text style={{ color: '#ef4444', fontSize: 11, marginTop: -25, marginBottom: 25, marginLeft: 15, fontWeight: 'bold' }}>{errors.licenseNumber.message}</Text>}
 
                 <SectionTitle title={t('documents_verification', 'Documents & Verification')} icon={Shield} />
                 <View style={{ gap: 12, marginBottom: 40 }}>
@@ -254,7 +313,7 @@ export default function DriverRegisterScreen({ navigation }) {
 
                 <TouchableOpacity
                     style={[styles.actionButton, (!docsUploaded || loading) && { opacity: 0.5 }]}
-                    onPress={handleRegister}
+                    onPress={handleSubmit(handleRegister)}
                     disabled={loading || !docsUploaded}
                 >
                     <LinearGradient
@@ -265,7 +324,7 @@ export default function DriverRegisterScreen({ navigation }) {
                             <ActivityIndicator color="#fff" />
                         ) : (
                             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                                <Text style={styles.actionButtonText}>{t('submit_application', 'Submit Application')}</Text>
+                                <Text style={styles.actionButtonText}>{String(t('submit_application', 'Submit Application'))}</Text>
                                 <ArrowRight size={20} color="#fff" />
                             </View>
                         )}

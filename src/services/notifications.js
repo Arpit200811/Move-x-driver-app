@@ -79,3 +79,8 @@ export async function registerForPushNotificationsAsync() {
 
   return token;
 }
+
+export function subscribeToNotifications(handler) {
+  if (!Notifications || (isAndroid && isExpoGo)) return null;
+  return Notifications.addNotificationReceivedListener(handler);
+}

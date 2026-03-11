@@ -14,9 +14,6 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.movex.driver",
-      "config": {
-        "googleMapsApiKey": "AIza_placeholder_google_maps_key"
-      },
       "infoPlist": {
         "UIBackgroundModes": [
           "location",
@@ -26,15 +23,15 @@
     },
     "android": {
       "package": "com.movex.driver",
-      "config": {
-        "googleMaps": {
-          "apiKey": "AIza_placeholder_google_maps_key"
-        }
-      },
       "permissions": [
         "ACCESS_COARSE_LOCATION",
         "ACCESS_FINE_LOCATION",
-        "ACCESS_BACKGROUND_LOCATION"
+        "ACCESS_BACKGROUND_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_BACKGROUND_LOCATION",
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.FOREGROUND_SERVICE_LOCATION"
       ],
       "adaptiveIcon": {
         "backgroundColor": "#111827",
@@ -53,7 +50,9 @@
       "expo-secure-store"
     ],
     "extra": {
-      "eas": {}
+      "eas": {
+        "projectId": "8d83587e-2a1d-44aa-91b2-428a524e102d"
+      }
     },
     "web": {
       "favicon": "./assets/favicon.png"

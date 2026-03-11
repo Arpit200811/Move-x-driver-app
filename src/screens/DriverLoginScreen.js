@@ -8,10 +8,24 @@ import * as SecureStore from 'expo-secure-store';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTranslation } from 'react-i18next';
 import * as LocalAuthentication from 'expo-local-authentication';
+import { useForm, Controller } from 'react-hook-form';
+import { yupResolver } from '@hookform/resolvers/yup';
+import * as yup from 'yup';
+import Toast from 'react-native-toast-message';
+
+const loginSchema = yup.object().shape({
+  phone: yup.string()
+    .required('Phone number is required')
+    .min(10, 'Phone must be at least 10 digits')
+    .matches(/^\d+$/, 'Phone must contain only numbers')
+});
 
 export default function DriverLoginScreen({ navigation }) {
   const { t } = useTranslation();
-  const [phone, setPhone] = useState('');
+  const { control, handleSubmit, formState: { errors } } = useForm({
+    resolver: yupResolver(loginSchema),
+    defaultValues: { phone: '' }
+  });
   const [countryCode, setCountryCode] = useState('+91');
   const [countryFlag, setCountryFlag] = useState('🇮🇳');
   const [loading, setLoading] = useState(false);
@@ -29,19 +43,24 @@ export default function DriverLoginScreen({ navigation }) {
   }, []);
 
   const handleBiometricLogin = async () => {
-    const result = await LocalAuthentication.authenticateAsync({
-        promptMessage: 'Authorize Driver Login',
-        fallbackLabel: 'Enter Passcode',
-    });
+    try {
+        const result = await LocalAuthentication.authenticateAsync({
+            promptMessage: 'Authorize Driver Login',
+            fallbackLabel: 'Enter Passcode',
+        });
 
-    if (result.success) {
-        const token = await AsyncStorage.getItem('movex_token');
-        const user = await AsyncStorage.getItem('movex_user');
-        if (token && user) {
-            navigation.replace('DriverHome');
-        } else {
-            Alert.alert('Session Expired', 'Please login with phone first.');
+        if (result.success) {
+            const token = await SecureStore.getItemAsync('movex_token');
+            const user = await AsyncStorage.getItem('movex_user');
+            if (token && user) {
+                navigation.replace('DriverHome');
+            } else {
+                Alert.alert('Session Expired', 'Please login with phone first.');
+            }
         }
+    } catch (err) {
+        console.error('Biometric Login Crash:', err);
+        Alert.alert('Biometric Error', 'Hardware unavailable or misconfigured.');
     }
   };
 
@@ -53,23 +72,28 @@ export default function DriverLoginScreen({ navigation }) {
     { code: '+966', flag: '🇸🇦', name: 'Saudi Arabia' },
   ];
 
-  const handleLogin = async () => {
-    if (!phone) return Alert.alert(t('input_error', 'Input Error'), t('id_required_desc', 'Phone number is required.'));
+  const handleLogin = async (data) => {
+    require('react-native').Keyboard.dismiss();
+    setLoading(true);
     
     try {
       const response = await api.post('/auth/login', { 
-          phone: `${countryCode}${phone}`, 
+          phone: `${countryCode}${data.phone}`, 
           role: 'driver' 
       });
       const { token, user } = response.data;
+
+      if (!token) throw new Error('No authentication token returned from server.');
       
       await SecureStore.setItemAsync('movex_token', token);
       await AsyncStorage.setItem('movex_user', JSON.stringify(user));
       
       navigation.replace('DriverHome');
+      Toast.show({ type: 'success', text1: 'Login Successful', text2: 'Welcome back!' });
     } catch (error) {
-      const msg = error.response?.data?.message || t('login_failed_desc', 'Authorization failed. Please try again.');
-      Alert.alert(t('login_failed', 'Login Failed'), msg);
+      console.error('Login Process Error:', error);
+      const msg = error.response?.data?.message || error.message || t('login_failed_desc', 'Authorization failed. Please try again.');
+      Toast.show({ type: 'error', text1: String(t('login_failed', 'Login Failed')), text2: String(msg) });
     } finally {
       setLoading(false);
     }
@@ -108,15 +132,23 @@ export default function DriverLoginScreen({ navigation }) {
                         <Text style={styles.countryCode}>{countryCode}</Text>
                     </TouchableOpacity>
                     <View style={styles.divider} />
-                    <TextInput
-                        style={styles.input}
-                        placeholder={t('phone_placeholder', 'Enter phone number')}
-                        placeholderTextColor="#94a3b8"
-                        keyboardType="phone-pad"
-                        value={phone}
-                        onChangeText={setPhone}
+                    <Controller
+                        control={control}
+                        name="phone"
+                        render={({ field: { onChange, onBlur, value } }) => (
+                            <TextInput
+                                style={styles.input}
+                                placeholder={t('phone_placeholder', 'Enter phone number')}
+                                placeholderTextColor="#94a3b8"
+                                keyboardType="phone-pad"
+                                value={value}
+                                onChangeText={onChange}
+                                onBlur={onBlur}
+                            />
+                        )}
                     />
                 </View>
+                {errors.phone && <Text style={{ color: '#ef4444', fontSize: 12, marginTop: -15, marginBottom: 15, marginLeft: 5, fontWeight: 'bold' }}>{errors.phone.message}</Text>}
 
                 {showPicker && (
                     <View style={styles.pickerDropdown}>
@@ -150,7 +182,7 @@ export default function DriverLoginScreen({ navigation }) {
                 )}
 
                 <TouchableOpacity 
-                    onPress={handleLogin}
+                    onPress={handleSubmit(handleLogin)}
                     disabled={loading}
                     style={styles.loginButton}
                 >
@@ -159,7 +191,7 @@ export default function DriverLoginScreen({ navigation }) {
                         style={styles.buttonGradient}
                     >
                         <Text style={styles.buttonText}>
-                            {loading ? (t('signing_in', 'Signing in...')) : (t('sign_in', 'Sign In'))}
+                            {loading ? String(t('signing_in', 'Signing in...')) : String(t('sign_in', 'Sign In'))}
                         </Text>
                         {!loading && <ArrowRight size={22} color="#fff" />}
                     </LinearGradient>

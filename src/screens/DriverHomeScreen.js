@@ -13,7 +13,7 @@ import { Surface, Badge, Button, Modal, Portal, Provider } from 'react-native-pa
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTranslation } from 'react-i18next';
 import io from 'socket.io-client';
-import MapView, { Polygon, PROVIDER_DEFAULT, Marker, Circle, UrlTile } from 'react-native-maps';
+import MoveXMap from '../components/MoveXMap';
 import * as h3 from 'h3-js';
 import { startBackgroundLocationUpdates, stopBackgroundLocationUpdates } from '../services/locationTask';
 import Animated, { FadeInUp, FadeInRight, SlideInRight, useSharedValue, useAnimatedStyle, withRepeat, withTiming, withSequence, interpolate, useDerivedValue } from 'react-native-reanimated';
@@ -358,59 +358,20 @@ export default function DriverHomeScreen({ navigation }) {
               </View>
           )}
 
-          <MapView
-            ref={mapRef}
-            provider={PROVIDER_DEFAULT}
-            style={StyleSheet.absoluteFillObject}
-            initialRegion={{
-                latitude: currentLocation?.latitude || 28.6139,
-                longitude: currentLocation?.longitude || 77.2090,
-                latitudeDelta: 0.1,
-                longitudeDelta: 0.1,
-            }}
-            showsUserLocation={true}
-            showsMyLocationButton={false}
-          >
-          <UrlTile 
-            urlTemplate="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png"
-            shouldReplaceMapContent={true}
-            maximumZ={19}
-          />
-          {showHeatmap && heatmap.map((cell) => (
-              <React.Fragment key={cell.hex}>
-                <Polygon
-                    coordinates={cell.boundary}
-                    fillColor={getHeatmapColor(cell.count, cell.multiplier)}
-                    strokeColor="rgba(255,255,255,0.2)"
-                    strokeWidth={1}
-                />
-                {(cell.multiplier > 1 || cell.count > 3) && (
-                    <Marker 
-                        coordinate={cell.center} 
-                        anchor={{ x: 0.5, y: 0.5 }}
-                        tracksViewChanges={false}
-                    >
-                        <View style={[styles.surgeMarker, { backgroundColor: cell.multiplier > 1 ? '#EF4444' : '#10B981' }]}>
-                            <Text style={styles.surgeText}>{cell.multiplier?.toFixed(1) || '1.0'}x</Text>
-                        </View>
-                    </Marker>
-                )}
-              </React.Fragment>
-          ))}
-
-          {orders.map(order => (
-              <Marker 
-                key={order._id} 
-                coordinate={{ latitude: order.pickupCoords?.lat || 0, longitude: order.pickupCoords?.lng || 0 }}
-                onPress={() => navigation.navigate('OrderDetails', { order })}
-                tracksViewChanges={false}
-              >
-                  <Surface style={styles.orderMarker} elevation={4}>
-                      <Package size={16} color="#fff" />
-                  </Surface>
-              </Marker>
-          ))}
-      </MapView>
+      <MoveXMap 
+        style={StyleSheet.absoluteFillObject}
+        driverLocation={currentLocation ? { lat: currentLocation.latitude, lng: currentLocation.longitude } : null}
+        polygons={showHeatmap ? heatmap.map(cell => ({
+            coordinates: cell.boundary,
+            fillColor: getHeatmapColor(cell.count, cell.multiplier),
+            strokeColor: "rgba(255,255,255,0.2)",
+            strokeWidth: 1
+        })) : []}
+        markers={orders.map(order => ({
+            latitude: order.pickupCoords?.lat || 0,
+            longitude: order.pickupCoords?.lng || 0
+        }))}
+      />
 
       <SafeAreaView style={styles.overlayContainer}>
           <View style={styles.header}>

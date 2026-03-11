@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, TouchableOpacity, Platform, Alert, SafeAreaView, StatusBar, Linking, StyleSheet } from 'react-native';
-import MapView, { Marker, Polyline, UrlTile, PROVIDER_DEFAULT } from 'react-native-maps';
+import MoveXMap from '../components/MoveXMap';
 // Directions removed to avoid billing
 import * as Location from 'expo-location';
 import { ChevronLeft, Navigation as NavIcon, MapPin, Zap, Globe, Clock, ChevronRight } from 'lucide-react-native';
@@ -103,34 +103,13 @@ export default function MapScreen({ route, navigation }) {
         <View style={styles.container}>
             <StatusBar barStyle="dark-content" transparent />
             
-            <MapView
-                ref={mapRef}
-                provider={PROVIDER_DEFAULT}
+            <MoveXMap 
                 style={styles.map}
-                initialRegion={{
-                    latitude: driverLoc?.latitude || 28.6139,
-                    longitude: driverLoc?.longitude || 77.2090,
-                    latitudeDelta: 0.1,
-                    longitudeDelta: 0.1,
-                }}
-                showsUserLocation
-            >
-                <UrlTile 
-                    urlTemplate="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                    shouldReplaceMapContent={true}
-                    maximumZ={19}
-                />
-                
-                {routeCoords.length > 0 && (
-                    <Polyline coordinates={routeCoords} strokeWidth={5} strokeColor="#2563EB" />
-                )}
-
-                <Marker coordinate={destination}>
-                    <View style={styles.destinationMarker}>
-                        <MapPin size={20} color="#fff" />
-                    </View>
-                </Marker>
-            </MapView>
+                driverLocation={driverLoc ? { lat: driverLoc.latitude, lng: driverLoc.longitude } : null}
+                destination={destination ? { lat: destination.latitude, lng: destination.longitude } : null}
+                route={routeCoords}
+                markers={[{ latitude: destination.latitude, longitude: destination.longitude }]}
+            />
 
             {/* Turn-By-Turn Instruction HUD */}
             <SafeAreaView style={styles.hudContainer}>

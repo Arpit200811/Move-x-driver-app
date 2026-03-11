@@ -11,6 +11,14 @@ import * as Location from 'expo-location';
 import api from '../services/api';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTranslation } from 'react-i18next';
+import { useForm, Controller } from 'react-hook-form';
+import { yupResolver } from '@hookform/resolvers/yup';
+import * as yup from 'yup';
+import Toast from 'react-native-toast-message';
+
+const nameSchema = yup.object().shape({
+  name: yup.string().required('Name cannot be empty').min(2, 'Name is too short')
+});
 
 const { width } = Dimensions.get('window');
 
@@ -19,7 +27,11 @@ export default function DriverProfileScreen({ navigation }) {
   const [driver, setDriver] = useState(null);
   const [isOnline, setIsOnline] = useState(false);
   const [editingName, setEditingName] = useState(false);
-  const [newName, setNewName] = useState('');
+  const { control, handleSubmit, formState: { errors }, reset } = useForm({
+    resolver: yupResolver(nameSchema),
+    defaultValues: { name: '' },
+    mode: 'onChange'
+  });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [showLangModal, setShowLangModal] = useState(false);
@@ -38,7 +50,7 @@ export default function DriverProfileScreen({ navigation }) {
         const u = JSON.parse(raw);
         setDriver(u);
         setIsOnline(u.isOnline || false);
-        setNewName(u.name || '');
+        reset({ name: u.name || '' });
         const bio = await AsyncStorage.getItem('biometric_enabled');
         setBiometricEnabled(bio === 'true');
       }
@@ -72,16 +84,18 @@ export default function DriverProfileScreen({ navigation }) {
     }
   };
 
-  const handleSaveName = async () => {
-    if (!newName.trim()) return;
+  const handleSaveName = async (data) => {
     setSaving(true);
     try {
-      const res = await api.put('/auth/profile', { name: newName.trim() });
+      const res = await api.put('/auth/profile', { name: data.name.trim() });
       const updated = { ...driver, name: res.data.user.name };
       setDriver(updated);
       await AsyncStorage.setItem('movex_user', JSON.stringify(updated));
       setEditingName(false);
-    } catch (_) { Alert.alert('Error', 'Failed to update identity.'); }
+      Toast.show({ type: 'success', text1: 'Success', text2: 'Identity updated successfully' });
+    } catch (_) { 
+        Toast.show({ type: 'error', text1: 'Error', text2: 'Failed to update identity.' }); 
+    }
     finally { setSaving(false); }
   };
 
@@ -127,16 +141,26 @@ export default function DriverProfileScreen({ navigation }) {
                 
                 <View style={styles.nameSection}>
                     {editingName ? (
-                        <View style={styles.editNameRow}>
-                            <TextInput 
-                                style={styles.nameInput} 
-                                value={newName} 
-                                onChangeText={setNewName} 
-                                autoFocus 
-                            />
-                            <TouchableOpacity onPress={handleSaveName} disabled={saving} style={styles.saveCheck}>
-                                <Check size={20} color="#10B981" />
-                            </TouchableOpacity>
+                        <View style={{ alignItems: 'center' }}>
+                            <View style={[styles.editNameRow, errors.name && { borderColor: '#ef4444', borderWidth: 1 }]}>
+                                <Controller
+                                    control={control}
+                                    name="name"
+                                    render={({ field: { onChange, onBlur, value } }) => (
+                                        <TextInput 
+                                            style={styles.nameInput} 
+                                            value={value} 
+                                            onChangeText={onChange}
+                                            onBlur={onBlur}
+                                            autoFocus 
+                                        />
+                                    )}
+                                />
+                                <TouchableOpacity onPress={handleSubmit(handleSaveName)} disabled={saving} style={styles.saveCheck}>
+                                    <Check size={20} color="#10B981" />
+                                </TouchableOpacity>
+                            </View>
+                            {errors.name && <Text style={{ color: '#ef4444', fontSize: 11, marginTop: 4, fontWeight: 'bold' }}>{errors.name.message}</Text>}
                         </View>
                     ) : (
                         <TouchableOpacity onPress={() => setEditingName(true)} style={styles.nameDisplayRow}>

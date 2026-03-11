@@ -5,8 +5,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 
 // Move-X Distributed Translation Network Config
-const DEVICE_IP = '172.24.195.197';
-const API_URL = Platform.OS === 'android' ? `http://${DEVICE_IP}:5000` : 'http://localhost:5000';
+const API_URL = 'https://move-x-backend.onrender.com';
 
 const languageDetector = {
   type: 'languageDetector',
