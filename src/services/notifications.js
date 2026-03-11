@@ -30,54 +30,67 @@ if (!(isAndroid && isExpoGo)) {
 }
 
 export async function registerForPushNotificationsAsync() {
-  if (!Notifications || (isAndroid && isExpoGo)) {
-    if (isAndroid && isExpoGo) {
-       console.warn('[PUSH ARCHITECTURE] Remote notifications are PERMANENTLY disabled in Expo Go on Android (SDK 53+ Architecture). Navigation logic will proceed.');
-    }
-    return null;
-  }
-
-  let token;
-
-  // Push notifications only work on physical devices or builds
-  const isDevice = Constants.isDevice;
-  if (!isDevice) {
-    console.log('[PUSH] Must use physical device for push notifications.');
-    return null;
-  }
-
-  if (Platform.OS === 'android') {
-    await Notifications.setNotificationChannelAsync('default', {
-      name: 'default',
-      importance: Notifications.AndroidImportance.MAX,
-      vibrationPattern: [0, 250, 250, 250],
-      lightColor: '#FF231F7C',
-    });
-  }
-
-  const { status: existingStatus } = await Notifications.getPermissionsAsync();
-  let finalStatus = existingStatus;
-  if (existingStatus !== 'granted') {
-    const { status } = await Notifications.requestPermissionsAsync();
-    finalStatus = status;
-  }
-  if (finalStatus !== 'granted') {
-    console.log('[PUSH] Permission denied.');
-    return null;
-  }
-
-  // Final check for token retrieval
   try {
-     const projectId = Constants.expoConfig?.extra?.eas?.projectId;
-     token = (await Notifications.getExpoPushTokenAsync({ projectId })).data;
-     console.log('[PUSH TOKEN]:', token);
+    if (!Notifications || (isAndroid && isExpoGo)) {
+      if (isAndroid && isExpoGo) {
+         console.warn('[PUSH ARCHITECTURE] Remote notifications are PERMANENTLY disabled in Expo Go on Android (SDK 53+ Architecture). Navigation logic will proceed.');
+      }
+      return null;
+    }
 
-     await api.post('/auth/push-token', { token });
-  } catch (err) {
-     console.log('[PUSH ERROR] Token retrieval failed (Common in SDK 53+ Go):', err.message);
+    let token;
+
+    // Push notifications only work on physical devices or builds
+    const isDevice = Constants.isDevice;
+    if (!isDevice) {
+      console.log('[PUSH] Must use physical device for push notifications.');
+      return null;
+    }
+
+    if (Platform.OS === 'android') {
+      try {
+        await Notifications.setNotificationChannelAsync('default', {
+          name: 'default',
+          importance: Notifications.AndroidImportance.MAX,
+          vibrationPattern: [0, 250, 250, 250],
+          lightColor: '#FF231F7C',
+        });
+      } catch (e) { console.error('Channel Error:', e); }
+    }
+
+    const { status: existingStatus } = await Notifications.getPermissionsAsync().catch(() => ({ status: 'undetermined' }));
+    let finalStatus = existingStatus;
+    if (existingStatus !== 'granted') {
+      const { status } = await Notifications.requestPermissionsAsync().catch(() => ({ status: 'denied' }));
+      finalStatus = status;
+    }
+    if (finalStatus !== 'granted') {
+      console.log('[PUSH] Permission denied.');
+      return null;
+    }
+
+    // Final check for token retrieval
+    try {
+       const projectId = Constants.expoConfig?.extra?.eas?.projectId;
+       if (!projectId) {
+         console.warn('[PUSH ERROR] Project ID missing in app.json');
+         return null;
+       }
+       token = (await Notifications.getExpoPushTokenAsync({ projectId })).data;
+       console.log('[PUSH TOKEN SUCCESS]:', token);
+
+       if (token) {
+         await api.post('/auth/push-token', { token }).catch(e => console.log('Token sync error:', e.message));
+       }
+    } catch (err) {
+       console.log('[PUSH ERROR] Token retrieval failed (Common in SDK 53+ Go):', err.message);
+    }
+
+    return token;
+  } catch (globalPushErr) {
+    console.error('GLOBAL PUSH CRASH PREVENTED:', globalPushErr);
+    return null;
   }
-
-  return token;
 }
 
 export function subscribeToNotifications(handler) {

@@ -139,9 +139,11 @@ export default function DriverHomeScreen({ navigation }) {
   const fetchOrders = async () => {
     try {
       const response = await api.get('/orders/available');
-      setOrders(response.data.orders || []);
+      if (response.data && response.data.orders) {
+          setOrders(response.data.orders);
+      }
     } catch (error) {
-      console.log('Error fetching orders');
+      console.log('Error fetching orders:', error.message);
     }
   };
 
@@ -172,20 +174,23 @@ export default function DriverHomeScreen({ navigation }) {
           setDriver(parsed);
           if (parsed.isOnline) {
             try {
-              await startBackgroundLocationUpdates();
+              // Delayed start to prevent race conditions during boot
+              setTimeout(() => {
+                  startBackgroundLocationUpdates().catch(e => console.error('BG_LOC_CRASH:', e));
+              }, 2000);
             } catch (err) {
               console.log('Background task start error');
             }
           }
       }
 
-      const servicesEnabled = await Location.hasServicesEnabledAsync();
+      const servicesEnabled = await Location.hasServicesEnabledAsync().catch(() => false);
       if (!servicesEnabled) {
-        Alert.alert(t('location_error'), t('location_services_disabled', 'Location services are disabled. Please enable them in settings.'));
+        // Only alert if the component is still mounted and driver wants to be online
         return;
       }
 
-      let { status } = await Location.requestForegroundPermissionsAsync();
+      let { status } = await Location.requestForegroundPermissionsAsync().catch(() => ({ status: 'denied' }));
       if (status === 'granted') {
           try {
             const loc = await Location.getCurrentPositionAsync({
@@ -230,7 +235,7 @@ export default function DriverHomeScreen({ navigation }) {
     fetchEarnings();
     loadDriver();
     fetchHeatmap();
-    registerForPushNotificationsAsync();
+    // registration moved to App.js only to avoid double initialization crash
 
     const interval = setInterval(() => {
         fetchHeatmap();
@@ -251,19 +256,27 @@ export default function DriverHomeScreen({ navigation }) {
   }, [navigation]);
 
   useEffect(() => {
-    const socket = io(SOCKET_URL);
-    socket.on('new_order', (newOrder) => {
-      setOrders(prev => [newOrder, ...prev]);
-    });
-    socket.on('order_updated', (updatedOrder) => {
-      setOrders(prev => prev.map(o => o._id === updatedOrder._id ? updatedOrder : o));
-    });
-    socket.on('mission_request', (mission) => {
-        setIncomingMission(mission);
-        setShowMissionModal(true);
-    });
+    let socket;
+    try {
+        socket = io(SOCKET_URL, {
+            timeout: 10000,
+            transports: ['websocket'] // Force websocket for stability on Android
+        });
+        socket.on('new_order', (newOrder) => {
+          setOrders(prev => [newOrder, ...prev]);
+        });
+        socket.on('order_updated', (updatedOrder) => {
+          setOrders(prev => prev.map(o => o._id === updatedOrder._id ? updatedOrder : o));
+        });
+        socket.on('mission_request', (mission) => {
+            setIncomingMission(mission);
+            setShowMissionModal(true);
+        });
+    } catch (e) {
+        console.error('Socket init error:', e);
+    }
 
-    return () => socket.disconnect();
+    return () => { if (socket) socket.disconnect(); };
   }, []);
 
   useEffect(() => {

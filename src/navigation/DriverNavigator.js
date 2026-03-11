@@ -31,25 +31,48 @@ export default function DriverNavigator() {
 
   React.useEffect(() => {
     (async () => {
-      const onboarded = await AsyncStorage.getItem('onboarding_complete');
-      const token = await SecureStore.getItemAsync('movex_token');
-      
-      if (!onboarded) {
-          setInitialRoute('Onboarding');
-      } else if (token) {
-          const bioEnabled = await AsyncStorage.getItem('biometric_enabled');
-          if (bioEnabled === 'true') {
-              const result = await LocalAuthentication.authenticateAsync({
-                  promptMessage: 'Authorize Mission Access',
-                  fallbackLabel: 'Use System Passcode',
-              });
-              if (result.success) setInitialRoute('DriverHome');
-              else setInitialRoute('DriverLogin'); // Force re-login or stay at login if failed
-          } else {
-              setInitialRoute('DriverHome');
-          }
-      } else {
-          setInitialRoute('DriverLogin');
+      try {
+        // DEFENSIVE CHECK: Ensure native modules don't kill the app on boot
+        const onboarded = await AsyncStorage.getItem('onboarding_complete').catch(() => 'true');
+        let token = null;
+        try {
+           token = await SecureStore.getItemAsync('movex_token');
+        } catch (e) { console.error('SecureStore unavailable'); }
+
+        if (!onboarded) {
+            setInitialRoute('Onboarding');
+        } else if (token) {
+            // Check for Biometrics but be extremely careful
+            const bioEnabled = await AsyncStorage.getItem('biometric_enabled');
+            if (bioEnabled === 'true') {
+                try {
+                    const hasHardware = await LocalAuthentication.hasHardwareAsync();
+                    const isEnrolled = await LocalAuthentication.isEnrolledAsync();
+                    
+                    if (hasHardware && isEnrolled) {
+                        const result = await LocalAuthentication.authenticateAsync({
+                            promptMessage: 'Authorize Mission Access',
+                            fallbackLabel: 'Use System Passcode',
+                            disableDeviceFallback: false,
+                        });
+                        if (result.success) setInitialRoute('DriverHome');
+                        else setInitialRoute('DriverLogin');
+                    } else {
+                        setInitialRoute('DriverHome');
+                    }
+                } catch (bioErr) {
+                    console.error('Biometric Auth Failure during boot:', bioErr);
+                    setInitialRoute('DriverHome'); // Fallback to Home if bio fails natively
+                }
+            } else {
+                setInitialRoute('DriverHome');
+            }
+        } else {
+            setInitialRoute('DriverLogin');
+        }
+      } catch (err) {
+        console.error('CRITICAL NAVIGATOR CRASH:', err);
+        setInitialRoute('DriverLogin'); // Absolute fallback
       }
     })();
   }, []);
