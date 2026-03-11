@@ -22,30 +22,14 @@ import MissionRequestModal from '../components/MissionRequestModal';
 
 const { width, height } = Dimensions.get('window');
 
-const mapStyle = [
-    { "elementType": "geometry", "stylers": [{ "color": "#121212" }] },
-    { "elementType": "labels.text.fill", "stylers": [{ "color": "#757575" }] },
-    { "elementType": "labels.text.stroke", "stylers": [{ "color": "#212121" }] },
-    { "featureType": "administrative", "elementType": "geometry", "stylers": [{ "color": "#757575" }] },
-    { "featureType": "administrative.country", "elementType": "labels.text.fill", "stylers": [{ "color": "#9e9e9e" }] },
-    { "featureType": "administrative.land_parcel", "stylers": [{ "visibility": "off" }] },
-    { "featureType": "administrative.locality", "elementType": "labels.text.fill", "stylers": [{ "color": "#bdbdbd" }] },
-    { "featureType": "poi", "elementType": "labels.text.fill", "stylers": [{ "color": "#757575" }] },
-    { "featureType": "poi.park", "elementType": "geometry", "stylers": [{ "color": "#181818" }] },
-    { "featureType": "poi.park", "elementType": "labels.text.fill", "stylers": [{ "color": "#616161" }] },
-    { "featureType": "poi.park", "elementType": "labels.text.stroke", "stylers": [{ "color": "#1b1b1b" }] },
-    { "featureType": "road", "elementType": "geometry.fill", "stylers": [{ "color": "#2c2c2c" }] },
-    { "featureType": "road", "elementType": "labels.text.fill", "stylers": [{ "color": "#8a8a8a" }] },
-    { "featureType": "road.arterial", "elementType": "geometry", "stylers": [{ "color": "#373737" }] },
-    { "featureType": "road.highway", "elementType": "geometry", "stylers": [{ "color": "#3c3c3c" }] },
-    { "featureType": "road.highway.controlled_access", "elementType": "geometry", "stylers": [{ "color": "#4e4e4e" }] },
-    { "featureType": "road.local", "elementType": "labels.text.fill", "stylers": [{ "color": "#616161" }] },
-    { "featureType": "transit", "elementType": "labels.text.fill", "stylers": [{ "color": "#757575" }] },
-    { "featureType": "water", "elementType": "geometry", "stylers": [{ "color": "#000000" }] },
-    { "featureType": "water", "elementType": "labels.text.fill", "stylers": [{ "color": "#3d3d3d" }] },
-];
+// DIAGNOSTIC MODE: Simple View for stability testing
+const MapPlaceholder = () => (
+    <View style={{ flex: 1, backgroundColor: '#0f172a', alignItems: 'center', justifyContent: 'center' }}>
+        <Globe size={40} color="rgba(255,255,255,0.1)" />
+        <Text style={{ color: '#475569', fontSize: 10, marginTop: 10 }}>MAP SYSTEM STANDBY (DIAGNOSTIC MODE)</Text>
+    </View>
+);
 
-// Move TimerBadge out of main component to ensure correct memoization
 const TimerBadge = React.memo(({ isOnline }) => {
   const [seconds, setSeconds] = useState(0);
   const { t } = useTranslation();
@@ -233,26 +217,28 @@ export default function DriverHomeScreen({ navigation }) {
   };
 
   useEffect(() => {
-    fetchOrders();
-    fetchEarnings();
-    loadDriver();
-    fetchHeatmap();
-    // registration moved to App.js only to avoid double initialization crash
+    // DIAGNOSTIC START: Wait 3 seconds before first fetch
+    const bootTimer = setTimeout(() => {
+        fetchOrders().catch(() => {});
+        fetchEarnings().catch(() => {});
+        loadDriver().catch(() => {});
+        fetchHeatmap().catch(() => {});
+    }, 3000);
 
     const interval = setInterval(() => {
-        fetchHeatmap();
-        fetchOrders();
+        fetchHeatmap().catch(() => {});
+        fetchOrders().catch(() => {});
     }, 15000);
 
-    return () => clearInterval(interval);
+    return () => {
+        clearTimeout(bootTimer);
+        clearInterval(interval);
+    };
   }, []);
-
 
   useEffect(() => {
     const unsubscribe = navigation.addListener('focus', () => {
-        fetchOrders();
-        fetchEarnings();
-        loadDriver();
+        // No auto-refetch on focus during diagnostic mode
     });
     return unsubscribe;
   }, [navigation]);
@@ -373,20 +359,7 @@ export default function DriverHomeScreen({ navigation }) {
               </View>
           )}
 
-      <MoveXMap 
-        style={StyleSheet.absoluteFillObject}
-        driverLocation={currentLocation ? { lat: currentLocation.latitude, lng: currentLocation.longitude } : null}
-        polygons={showHeatmap ? heatmap.map(cell => ({
-            coordinates: cell.boundary,
-            fillColor: getHeatmapColor(cell.count, cell.multiplier),
-            strokeColor: "rgba(255,255,255,0.2)",
-            strokeWidth: 1
-        })) : []}
-        markers={orders.map(order => ({
-            latitude: order.pickupCoords?.lat || 0,
-            longitude: order.pickupCoords?.lng || 0
-        }))}
-      />
+      <MapPlaceholder />
 
       <SafeAreaView style={styles.overlayContainer}>
           <View style={styles.header}>
@@ -442,7 +415,6 @@ export default function DriverHomeScreen({ navigation }) {
           <View style={{ flex: 1 }} />
 
           <View style={styles.bottomOverlay}>
-              <Animated.View style={animatedButtonStyle}>
                 <TouchableOpacity 
                     onPress={handleToggleOnline}
                     activeOpacity={0.9}
@@ -454,11 +426,10 @@ export default function DriverHomeScreen({ navigation }) {
                     >
                         <Zap size={28} color="#fff" />
                         <Text style={styles.actionBtnText}>
-                            {driver?.isOnline ? (t('active_now', 'ACTIVE')) : (t('go_online', 'GO ONLINE'))}
+                            {driver?.isOnline ? (String(t('active_now', 'ACTIVE'))) : (String(t('go_online', 'GO ONLINE')))}
                         </Text>
                     </LinearGradient>
                 </TouchableOpacity>
-              </Animated.View>
           </View>
 
           <View style={styles.bottomSheet}>
@@ -483,7 +454,7 @@ export default function DriverHomeScreen({ navigation }) {
                     showsVerticalScrollIndicator={false}
                     contentContainerStyle={{ paddingHorizontal: 32, paddingBottom: 60 }}
                     renderItem={({ item, index }) => (
-                        <Animated.View entering={FadeInRight.delay(index * 100)}>
+                        <View>
                             <TouchableOpacity 
                                 style={styles.orderCard}
                                 onPress={() => navigation.navigate('OrderDetails', { order: item })}
@@ -512,7 +483,7 @@ export default function DriverHomeScreen({ navigation }) {
                                 </View>
                                 <ChevronRight size={20} color="rgba(0,0,0,0.1)" />
                             </TouchableOpacity>
-                        </Animated.View>
+                        </View>
                     )}
                     ListEmptyComponent={
                         <View style={styles.emptyContainer}>
