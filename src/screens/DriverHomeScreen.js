@@ -160,13 +160,26 @@ export default function DriverHomeScreen({ navigation }) {
       let { status } = await Location.requestForegroundPermissionsAsync().catch(() => ({ status: 'denied' }));
       if (status === 'granted') {
           try {
+            // Priority 1: High Accuracy Current Position
             const loc = await Location.getCurrentPositionAsync({
               accuracy: Location.Accuracy.Balanced,
+              maxAge: 10000,
+              timeout: 5000
+            }).catch(async () => {
+                // Priority 2: Last Known Position if current fails
+                return await Location.getLastKnownPositionAsync();
             });
-            setCurrentLocation(loc.coords);
+
+            if (loc) {
+              setCurrentLocation(loc.coords);
+            } else {
+              console.log('Location: Both current and last known positions failed.');
+            }
           } catch (locErr) {
             console.log('Current location fetching error:', locErr.message);
           }
+      } else {
+          Alert.alert("Permission Required", "Please enable location permissions in settings to use the map.");
       }
     } catch (error) {
       console.log('Load driver error:', error.message);
