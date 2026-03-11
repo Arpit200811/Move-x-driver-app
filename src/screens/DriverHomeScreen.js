@@ -16,7 +16,6 @@ import io from 'socket.io-client';
 import MoveXMap from '../components/MoveXMap';
 import * as h3 from 'h3-js';
 import { startBackgroundLocationUpdates, stopBackgroundLocationUpdates } from '../services/locationTask';
-import Animated, { FadeInUp, FadeInRight, SlideInRight, useSharedValue, useAnimatedStyle, withRepeat, withTiming, withSequence, interpolate, useDerivedValue } from 'react-native-reanimated';
 import * as Location from 'expo-location';
 import MissionRequestModal from '../components/MissionRequestModal';
 
@@ -77,25 +76,7 @@ export default function DriverHomeScreen({ navigation }) {
   const [showMissionModal, setShowMissionModal] = useState(false);
   const mapRef = useRef(null);
 
-  // Animation pulse for online button
-  const pulse = useSharedValue(1);
-
-  useEffect(() => {
-    if (driver?.isOnline) {
-        pulse.value = withRepeat(
-            withTiming(1.1, { duration: 1500 }),
-            -1,
-            true
-        );
-    } else {
-        pulse.value = withTiming(1);
-    }
-  }, [driver?.isOnline]);
-
-  const animatedButtonStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: pulse.value }],
-    opacity: driver?.isOnline ? 1 : 0.8
-  }));
+  // Animation pulse disabled for stability testing
 
   const calculateDistance = (lat1, lon1, lat2, lon2) => {
     if (!lat1 || !lon1 || !lat2 || !lon2) return null;
@@ -387,20 +368,17 @@ export default function DriverHomeScreen({ navigation }) {
           </View>
 
           <View style={styles.revenueOverlay}>
-              <TouchableOpacity onPress={() => navigation.navigate('Earnings')} style={styles.revenueCard}>
-                  <View>
-                      <Text style={styles.balanceLabel}>{t('today_earnings', 'Today')}</Text>
-                      <Text style={styles.earningsText}>${todayEarnings}</Text>
+              <View style={styles.statsCard}>
+                      <View style={styles.statItem}>
+                          <Text style={styles.statLabel}>{t('today_earnings', 'Earnings')}</Text>
+                          <Text style={styles.statValue}>₹{todayEarnings}</Text>
+                      </View>
+                      <View style={styles.divider} />
+                      <View style={styles.statItem}>
+                          <Text style={styles.statLabel}>{t('orders_done', 'Missions')}</Text>
+                          <Text style={styles.statValue}>{orders.length}</Text>
+                      </View>
                   </View>
-                  <View style={styles.revenueCardRight}>
-                        <View style={styles.tierBadge}>
-                            <Trophy size={14} color="#fbbf24" style={{ marginRight: 6 }} />
-                            <Text style={styles.tierText}>{driver?.tier || 'BRONZE'}</Text>
-                        </View>
-                        <ChevronRight size={20} color="#94a3b8" />
-                  </View>
-              </TouchableOpacity>
-
               <TouchableOpacity onPress={() => navigation.navigate('Incentives')} style={styles.goalSection}>
                   <View style={styles.goalHeader}>
                       <Text style={styles.goalLabel}>{t('daily_goal', 'DAILY GOAL')}</Text>
@@ -448,50 +426,52 @@ export default function DriverHomeScreen({ navigation }) {
                       </TouchableOpacity>
                   </View>
 
-                  <FlatList
-                    data={orders}
-                    keyExtractor={(item) => item._id}
-                    showsVerticalScrollIndicator={false}
-                    contentContainerStyle={{ paddingHorizontal: 32, paddingBottom: 60 }}
-                    renderItem={({ item, index }) => (
-                        <View>
-                            <TouchableOpacity 
-                                style={styles.orderCard}
-                                onPress={() => navigation.navigate('OrderDetails', { order: item })}
-                            >
-                                <View style={styles.orderIconBox}>
-                                    <Package size={24} color="#2563EB" />
-                                </View>
-                                <View style={{ flex: 1 }}>
-                                    <View style={styles.orderHeader}>
-                                        <Text style={styles.orderPrice}>${item.price?.toFixed(2)}</Text>
-                                        {currentLocation && item.pickupCoords && (
-                                            <View style={styles.distanceBadge}>
-                                                <MapPin size={10} color="#10B981" />
-                                                <Text style={styles.distanceText}>
-                                                    {calculateDistance(
-                                                        currentLocation.latitude,
-                                                        currentLocation.longitude,
-                                                        item.pickupCoords.lat,
-                                                        item.pickupCoords.lng
-                                                    )} km
-                                                </Text>
-                                            </View>
-                                        )}
-                                    </View>
-                                    <Text style={styles.orderAddress} numberOfLines={1}>{item.pickup?.address || item.pickup}</Text>
-                                </View>
-                                <ChevronRight size={20} color="rgba(0,0,0,0.1)" />
-                            </TouchableOpacity>
-                        </View>
-                    )}
-                    ListEmptyComponent={
-                        <View style={styles.emptyContainer}>
-                            <Globe size={40} color="#e2e8f0" />
-                            <Text style={styles.emptyText}>{t('no_orders_found', 'No orders in your area')}</Text>
-                        </View>
-                    }
-                  />
+                      {orders.length > 0 && (
+                          <View style={styles.orderListContainer}>
+                              <Text style={styles.listTitle}>{t('orders_available', 'Mission Requests')}</Text>
+                              <FlatList
+                                  data={orders}
+                                  keyExtractor={(item) => item._id}
+                                  renderItem={({ item, index }) => (
+                                      <View>
+                                          <TouchableOpacity 
+                                              style={styles.orderCard}
+                                              onPress={() => navigation.navigate('OrderDetails', { order: item })}
+                                          >
+                                              <View style={styles.orderIconBox}>
+                                                  <Package size={24} color="#2563EB" />
+                                              </View>
+                                              <View style={{ flex: 1 }}>
+                                                  <View style={styles.orderHeader}>
+                                                      <Text style={styles.orderPrice}>${item.price?.toFixed(2)}</Text>
+                                                      {currentLocation && item.pickupCoords && (
+                                                          <View style={styles.distanceBadge}>
+                                                              <MapPin size={10} color="#10B981" />
+                                                              <Text style={styles.distanceText}>
+                                                                  {calculateDistance(
+                                                                      currentLocation.latitude,
+                                                                      currentLocation.longitude,
+                                                                      item.pickupCoords.lat,
+                                                                      item.pickupCoords.lng
+                                                                  )} km
+                                                              </Text>
+                                                          </View>
+                                                      )}
+                                                  </View>
+                                                  <Text style={styles.orderAddress} numberOfLines={1}>{item.pickup?.address || item.pickup}</Text>
+                                              </View>
+                                              <ChevronRight size={20} color="rgba(0,0,0,0.1)" />
+                                          </TouchableOpacity>
+                                      </View>
+                                  )}
+                                  ListEmptyComponent={
+                                      <View style={styles.emptyContainer}>
+                                          <Text style={styles.emptyText}>{t('no_orders', 'No missions available')}</Text>
+                                      </View>
+                                  }
+                              />
+                          </View>
+                      )}
               </View>
           </View>
       </SafeAreaView>
