@@ -1,13 +1,39 @@
-import React from 'react';
-import { View, Text, TouchableOpacity, SafeAreaView, StatusBar, StyleSheet, ScrollView, Dimensions } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, TouchableOpacity, SafeAreaView, StatusBar, StyleSheet, ScrollView, Dimensions, ActivityIndicator } from 'react-native';
 import { ChevronLeft, Trophy, Target, Zap, TrendingUp, Calendar, ChevronRight, Gift, Shield } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { LinearGradient } from 'expo-linear-gradient';
+import api from '../services/api';
 
 const { width } = Dimensions.get('window');
 
 export default function IncentivesScreen({ navigation }) {
   const { t } = useTranslation();
+  const [loading, setLoading] = useState(true);
+  const [data, setData] = useState(null);
+
+  useEffect(() => {
+    fetchIncentives();
+  }, []);
+
+  const fetchIncentives = async () => {
+    try {
+        const res = await api.get('/drivers/incentives');
+        setData(res.data.incentives);
+    } catch (e) {
+        console.log('Incentives fetch error');
+    } finally {
+        setLoading(false);
+    }
+  };
+
+  if (loading) return (
+      <View style={{ flex: 1, backgroundColor: '#fff', justifyContent: 'center' }}>
+          <ActivityIndicator color="#2563EB" size="large" />
+      </View>
+  );
+
+  const daily = data?.daily || { trips: 0, goal: 12, progress: 0, bonus: 20 };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -24,8 +50,8 @@ export default function IncentivesScreen({ navigation }) {
 
         <View style={styles.heroSection}>
             <Trophy size={48} color="#FBBF24" />
-            <Text style={styles.heroTitle}>Top 5% Performance</Text>
-            <Text style={styles.heroSub}>You are tracking well towards your monthly bonus goal.</Text>
+            <Text style={styles.heroTitle}>{daily.progress >= 100 ? 'Goal Achieved!' : 'Tracking Well'}</Text>
+            <Text style={styles.heroSub}>You are tracking well towards your daily bonus goal.</Text>
         </View>
       </LinearGradient>
 
@@ -35,20 +61,20 @@ export default function IncentivesScreen({ navigation }) {
                   <View style={styles.iconBox}>
                       <Target size={24} color="#2563EB" />
                   </View>
-                  <View style={{ flex: 1 }}>
+                  <View style={{ flex: 1, marginLeft: 16 }}>
                       <Text style={styles.goalTitle}>Daily Hero Bonus</Text>
-                      <Text style={styles.goalSub}>Complete 12 deliveries today</Text>
+                      <Text style={styles.goalSub}>Complete {daily.goal} deliveries today</Text>
                   </View>
-                  <Text style={styles.bonusAmt}>+$20.00</Text>
+                  <Text style={styles.bonusAmt}>+₹{daily.bonus}.00</Text>
               </View>
               
               <View style={styles.progressContainer}>
                   <View style={styles.progressBarBg}>
-                      <View style={[styles.progressBarFill, { width: '65%' }]} />
+                      <View style={[styles.progressBarFill, { width: `${daily.progress}%` }]} />
                   </View>
                   <View style={styles.progressLabels}>
-                      <Text style={styles.progressText}>8 of 12 completed</Text>
-                      <Text style={styles.percentText}>65%</Text>
+                      <Text style={styles.progressText}>{daily.trips} of {daily.goal} completed</Text>
+                      <Text style={styles.percentText}>{Math.round(daily.progress)}%</Text>
                   </View>
               </View>
           </View>
@@ -57,31 +83,20 @@ export default function IncentivesScreen({ navigation }) {
               <Text style={styles.sectionTitle}>WEEKLY CHALLENGES</Text>
           </View>
 
-          <TouchableOpacity style={styles.challengeItem}>
-              <LinearGradient colors={['#F0F9FF', '#E0F2FE']} style={styles.challengeIcon}>
-                  <Zap size={20} color="#0284C7" />
-              </LinearGradient>
-              <View style={{ flex: 1, marginLeft: 16 }}>
-                  <Text style={styles.challengeTitle}>Peak Hour Professional</Text>
-                  <Text style={styles.challengeDesc}>4/5 peak hour shifts completed</Text>
-              </View>
-              <View style={styles.rewardBadge}>
-                  <Text style={styles.rewardTxt}>$50</Text>
-              </View>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.challengeItem}>
-              <LinearGradient colors={['#FDF2F8', '#FCE7F3']} style={styles.challengeIcon}>
-                  <TrendingUp size={20} color="#DB2777" />
-              </LinearGradient>
-              <View style={{ flex: 1, marginLeft: 16 }}>
-                  <Text style={styles.challengeTitle}>Safety Gold Medal</Text>
-                  <Text style={styles.challengeDesc}>25 trips without incidents</Text>
-              </View>
-              <View style={styles.rewardBadge}>
-                  <Text style={styles.rewardTxt}>$100</Text>
-              </View>
-          </TouchableOpacity>
+          {data?.challenges?.map((challenge) => (
+            <TouchableOpacity key={challenge.id} style={styles.challengeItem}>
+                <LinearGradient colors={challenge.type === 'zap' ? ['#F0F9FF', '#E0F2FE'] : ['#FDF2F8', '#FCE7F3']} style={styles.challengeIcon}>
+                    {challenge.type === 'zap' ? <Zap size={20} color="#0284C7" /> : <Shield size={20} color="#DB2777" />}
+                </LinearGradient>
+                <View style={{ flex: 1, marginLeft: 16 }}>
+                    <Text style={styles.challengeTitle}>{challenge.title}</Text>
+                    <Text style={styles.challengeDesc}>{challenge.progress}/{challenge.goal} completed</Text>
+                </View>
+                <View style={styles.rewardBadge}>
+                    <Text style={styles.rewardTxt}>₹{challenge.reward}</Text>
+                </View>
+            </TouchableOpacity>
+          ))}
 
           <View style={styles.milestoneSection}>
               <Text style={styles.sectionTitle}>LIFETIME MILESTONES</Text>

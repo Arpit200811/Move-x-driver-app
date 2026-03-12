@@ -64,13 +64,15 @@ export const startBackgroundLocationUpdates = async () => {
     const hasStarted = await Location.hasStartedLocationUpdatesAsync(LOCATION_TASK_NAME);
     if (!hasStarted) {
       await Location.startLocationUpdatesAsync(LOCATION_TASK_NAME, {
-        accuracy: Location.Accuracy.Balanced,
-        timeInterval: 10000, 
-        distanceInterval: 50, // 50 meters
+        accuracy: Location.Accuracy.High,
+        timeInterval: 15000, 
+        distanceInterval: 10, 
+        deferredUpdatesInterval: 30000, 
+        deferredUpdatesDistance: 50,
         foregroundService: {
-          notificationTitle: "MoveX Active",
-          notificationBody: "Transmitting telemetry to Operations network",
-          notificationColor: "#2563EB",
+          notificationTitle: "MoveX Active Mode",
+          notificationBody: "Telemetry streaming active. Keep app in background for assignments.",
+          notificationColor: "#10B981",
         },
       });
       console.log('[ TASK MGR ] Background location tracking initiated.');

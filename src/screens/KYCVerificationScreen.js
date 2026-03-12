@@ -3,7 +3,7 @@ import {
   View, Text, ScrollView, TouchableOpacity,
   Alert, Image, ActivityIndicator, SafeAreaView, StatusBar, StyleSheet
 } from 'react-native';
-import { ChevronLeft, ShieldCheck, Clock, CheckCircle2, AlertTriangle, FileText, Camera } from 'lucide-react-native';
+import { ChevronLeft, ShieldCheck, Clock, CheckCircle2, AlertTriangle, FileText, Camera, Plus } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';

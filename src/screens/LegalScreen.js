@@ -27,22 +27,25 @@ export default function LegalScreen({ navigation }) {
         <View style={{ width: 44 }} />
       </View>
 
-      <ScrollView contentContainerStyle={{ padding: 24 }}>
+      <ScrollView contentContainerStyle={{ padding: 20 }}>
           <View style={styles.intro}>
-              <ShieldCheck size={48} color="#2563EB" />
+              <View style={styles.mainIconWrapper}>
+                  <ShieldCheck size={40} color="#fff" />
+              </View>
               <Text style={styles.introTitle}>MoveX Fleet Policy</Text>
-              <Text style={styles.introSub}>Review the terms of service, driver conduct guidelines, and data privacy policies.</Text>
+              <Text style={styles.introSub}>Transparent and secure operations. Please review our governing protocols and driver conduct guidelines.</Text>
           </View>
 
           <View style={styles.card}>
               <LegalItem icon={FileText} title="Driver Terms of Service" />
               <View style={styles.divider} />
-              <ShieldCheck size={20} color="#64748b" style={{ position: 'absolute', left: 20, top: 100 }} />
               <LegalItem icon={ShieldCheck} title="Privacy Policy" />
               <View style={styles.divider} />
               <LegalItem icon={Scale} title="Fleet Compliance" />
               <View style={styles.divider} />
               <LegalItem icon={FileText} title="Safety Guidelines" />
+              <View style={styles.divider} />
+              <LegalItem icon={Scale} title="Cancellation Policy" />
           </View>
 
           <View style={styles.versionSection}>
@@ -60,6 +63,7 @@ const styles = StyleSheet.create({
     headerTitle: { fontSize: 18, fontWeight: '700', color: '#0f172a' },
     backBtn: { width: 44, height: 44, borderRadius: 12, backgroundColor: '#f8fafc', alignItems: 'center', justifyContent: 'center' },
     intro: { alignItems: 'center', marginVertical: 40 },
+    mainIconWrapper: { width: 80, height: 80, borderRadius: 24, backgroundColor: '#2563EB', alignItems: 'center', justifyContent: 'center', shadowColor: '#2563EB', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.3, shadowRadius: 12, elevation: 8 },
     introTitle: { fontSize: 24, fontWeight: '800', color: '#0f172a', marginTop: 16 },
     introSub: { fontSize: 14, color: '#64748b', textAlign: 'center', marginTop: 12, paddingHorizontal: 20, lineHeight: 22 },
     card: { backgroundColor: '#fff', borderRadius: 24, borderWidth: 1, borderColor: '#f1f5f9', overflow: 'hidden' },

@@ -9,7 +9,7 @@ import { ChevronLeft, DollarSign, TrendingUp, Package, Zap, Calendar, ArrowUpRig
 import api from '../services/api';
 import { useTranslation } from 'react-i18next';
 import { LinearGradient } from 'expo-linear-gradient';
-import Animated, { useSharedValue, useAnimatedStyle, withRepeat, withTiming, withSequence } from 'react-native-reanimated';
+// Reanimated removed due to crashes
 
 const { width } = Dimensions.get('window');
 
@@ -213,16 +213,11 @@ export default function EarningsScreen({ navigation }) {
 }
 
 function SkeletonHeader() {
-    const opacity = useSharedValue(0.3);
-    useEffect(() => {
-        opacity.value = withRepeat(withSequence(withTiming(0.6, { duration: 1000 }), withTiming(0.3, { duration: 1000 })), -1, true);
-    }, []);
-    const style = useAnimatedStyle(() => ({ opacity: opacity.value }));
     return (
-        <Animated.View style={[styles.skeletonHeaderMain, style]}>
-            <View style={styles.skeletonHeaderLabel} />
-            <View style={styles.skeletonHeaderValue} />
-        </Animated.View>
+        <View style={styles.skeletonHeaderMain}>
+            <View style={[styles.skeletonHeaderLabel, { opacity: 0.3 }]} />
+            <View style={[styles.skeletonHeaderValue, { opacity: 0.3 }]} />
+        </View>
     );
 }
 

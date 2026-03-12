@@ -111,6 +111,23 @@ export default function DriverProfileScreen({ navigation }) {
     ]);
   };
 
+  const [performance, setPerformance] = useState({ rating: 5.0, acceptance: 100, cancellation: 0 });
+
+  useEffect(() => {
+    (async () => {
+        try {
+            const res = await api.get('/drivers/stats');
+            if (res.data.success) {
+                setPerformance({
+                    rating: res.data.stats.performance.rating,
+                    acceptance: res.data.stats.performance.acceptanceRate,
+                    cancellation: 0 // Fetch from real data if available
+                });
+            }
+        } catch (e) {}
+    })();
+  }, []);
+
   if (loading) return <View style={styles.loadingContainer}><ActivityIndicator color="#2563EB" size="large" /></View>;
 
   return (
@@ -200,15 +217,15 @@ export default function DriverProfileScreen({ navigation }) {
             <View style={styles.performanceRow}>
                 <View style={styles.performanceStat}>
                     <Text style={styles.statLabel}>Acceptance</Text>
-                    <Text style={styles.statValue}>98.5%</Text>
+                    <Text style={styles.statValue}>{performance.acceptance}%</Text>
                 </View>
                 <View style={[styles.performanceStat, { borderLeftWidth: 1, borderRightWidth: 1, borderColor: '#f1f5f9' }]}>
                     <Text style={styles.statLabel}>Rating</Text>
-                    <Text style={[styles.statValue, { color: '#F59E0B' }]}>4.9 ★</Text>
+                    <Text style={[styles.statValue, { color: '#F59E0B' }]}>{performance.rating.toFixed(1)} ★</Text>
                 </View>
                 <View style={styles.performanceStat}>
                     <Text style={styles.statLabel}>Cancelled</Text>
-                    <Text style={[styles.statValue, { color: '#EF4444' }]}>1.2%</Text>
+                    <Text style={[styles.statValue, { color: '#EF4444' }]}>{performance.cancellation}%</Text>
                 </View>
             </View>
 

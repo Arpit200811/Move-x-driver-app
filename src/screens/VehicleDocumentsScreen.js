@@ -1,20 +1,43 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity,
-  Alert, Image, ActivityIndicator, SafeAreaView, StatusBar, StyleSheet
+  Alert, Image, ActivityIndicator, SafeAreaView, StatusBar, StyleSheet, Platform
 } from 'react-native';
 import { ChevronLeft, FileText, Camera, Check, AlertCircle, Calendar } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from 'expo-linear-gradient';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import api from '../services/api';
 
 export default function VehicleDocumentsScreen({ navigation }) {
   const { t } = useTranslation();
+  const [loading, setLoading] = useState(false);
   const [docs, setDocs] = useState({
-    registration: { status: 'VERIFIED', expiry: '2026-12-01', uri: null },
-    insurance: { status: 'EXPIRED', expiry: '2024-01-15', uri: null },
-    permit: { status: 'PENDING', expiry: '2025-06-20', uri: null },
+    registration: { status: 'PENDING', expiry: '---', uri: null },
+    insurance: { status: 'PENDING', expiry: '---', uri: null },
+    permit: { status: 'PENDING', expiry: '---', uri: null },
   });
+
+  useEffect(() => {
+    loadDriverData();
+  }, []);
+
+  const loadDriverData = async () => {
+    try {
+      const userData = await AsyncStorage.getItem('movex_user');
+      if (userData) {
+        const driver = JSON.parse(userData);
+        setDocs({
+          registration: { status: driver.kycLicenseUrl ? 'VERIFIED' : 'PENDING', expiry: '2026-12-01', uri: driver.kycLicenseUrl },
+          insurance: { status: 'VERIFIED', expiry: '2025-01-15', uri: null },
+          permit: { status: driver.kycIdUrl ? 'VERIFIED' : 'PENDING', expiry: '2025-06-20', uri: driver.kycIdUrl },
+        });
+      }
+    } catch (e) {
+      console.log('Error loading driver data');
+    }
+  };
 
   const handleUpload = async (type) => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -27,11 +50,35 @@ export default function VehicleDocumentsScreen({ navigation }) {
     });
 
     if (!result.canceled) {
-      Alert.alert('Upload Successful', 'Document submitted for review.');
-      setDocs(prev => ({
-        ...prev,
-        [type]: { ...prev[type], status: 'UNDER_REVIEW' }
-      }));
+      setLoading(true);
+      try {
+          const localUri = Platform.OS === 'android' ? result.assets[0].uri : result.assets[0].uri.replace('file://', '');
+          const filename = result.assets[0].uri.split('/').pop();
+          const match = /\.(\w+)$/.exec(filename);
+          const fileType = match ? `image/${match[1]}` : 'image/jpeg';
+
+          const formData = new FormData();
+          formData.append('file', { uri: localUri, name: filename, type: fileType });
+
+          const uploadRes = await api.post('/upload/public', formData, {
+              headers: { 'Content-Type': 'multipart/form-data' }
+          });
+
+          if (uploadRes.data.success) {
+              const updateData = type === 'registration' ? { kycLicenseUrl: uploadRes.data.url } : { kycIdUrl: uploadRes.data.url };
+              await api.patch('/auth/profile', updateData);
+              
+              setDocs(prev => ({
+                ...prev,
+                [type]: { ...prev[type], status: 'VERIFIED', uri: uploadRes.data.url }
+              }));
+              Alert.alert('Success', 'Document updated successfully!');
+          }
+      } catch (err) {
+          Alert.alert('Error', 'Upload failed. Please try again.');
+      } finally {
+          setLoading(false);
+      }
     }
   };
 

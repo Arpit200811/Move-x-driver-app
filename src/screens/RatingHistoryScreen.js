@@ -4,35 +4,37 @@ import { View, Text, ScrollView, TouchableOpacity, SafeAreaView, StatusBar, Styl
 import { ChevronLeft, Star, MessageSquare, Calendar, Filter, Quote, ThumbsUp } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTranslation } from 'react-i18next';
-import Animated, { FadeInDown } from 'react-native-reanimated';
 
 export default function RatingHistoryScreen({ navigation }) {
     const { t } = useTranslation();
     const [feedbacks, setFeedbacks] = useState([]);
+    const [stats, setStats] = useState({ rating: 5.0, count: 0 });
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        fetchFeedbacks();
+        fetchData();
     }, []);
 
-    const fetchFeedbacks = async () => {
+    const fetchData = async () => {
         try {
-            const res = await api.get('/drivers/feedbacks');
-            setFeedbacks(res.data.feedbacks || [
-                { id: '1', rating: 5, comment: "Excellent driver, very punctual and handled the package with great care.", date: "Today", label: "PUNCTUAL" },
-                { id: '2', rating: 4, comment: "Professional service and polite behavior. Highly recommended!", date: "Yesterday", label: "POLITE" },
-                { id: '3', rating: 5, comment: "Safe driving and fast delivery. Thank you!", date: "2 days ago", label: "FAST" }
+            const [feedbackRes, statsRes] = await Promise.all([
+                api.get('/drivers/feedbacks'),
+                api.get('/drivers/stats')
             ]);
+            setFeedbacks(feedbackRes.data.feedbacks || []);
+            setStats({
+                rating: statsRes.data.stats.performance.rating,
+                count: feedbackRes.data.feedbacks?.length || 0
+            });
         } catch (e) {
             console.log('Feedback fetch error');
         } finally {
-            // Slight delay for premium feel
-            setTimeout(() => setLoading(false), 800);
+            setLoading(false);
         }
     };
 
     const RatingItem = ({ item, index }) => (
-        <Animated.View entering={FadeInDown.delay(index * 100)} style={styles.reviewCard}>
+        <View style={styles.reviewCard}>
             <View style={styles.cardHeader}>
                 <View style={styles.ratingInfo}>
                     <View style={styles.badgeLabel}>
@@ -50,7 +52,7 @@ export default function RatingHistoryScreen({ navigation }) {
                 <Quote size={16} color="#E2E8F0" style={{ position: 'absolute', top: -10, left: -10 }} />
                 <Text style={styles.commentText}>{item.comment}</Text>
             </View>
-        </Animated.View>
+        </View>
     );
 
     return (
@@ -75,19 +77,19 @@ export default function RatingHistoryScreen({ navigation }) {
                         <LinearGradient colors={['#fff', '#F8FAFC']} style={styles.statsCard}>
                             <Text style={styles.statsLabel}>AVERAGE RATING</Text>
                             <View style={styles.ratingRow}>
-                                <Text style={styles.bigRating}>4.8</Text>
+                                <Text style={styles.bigRating}>{stats.rating.toFixed(1)}</Text>
                                 <View style={styles.ratingMeta}>
                                     <View style={styles.metaStars}>
-                                        {[1,2,3,4,5].map(s => <Star key={s} size={16} color="#F59E0B" fill="#F59E0B" />)}
+                                        {[1,2,3,4,5].map(s => <Star key={s} size={16} color="#F59E0B" fill={s <= Math.round(stats.rating) ? "#F59E0B" : "transparent"} />)}
                                     </View>
-                                    <Text style={styles.totalReviews}>Based on 124 reviews</Text>
+                                    <Text style={styles.totalReviews}>Based on {stats.count} reviews</Text>
                                 </View>
                             </View>
                             
                             <View style={styles.statGrid}>
                                 <View style={styles.gridItem}>
                                     <ThumbsUp size={18} color="#2563EB" />
-                                    <Text style={styles.gridValue}>98%</Text>
+                                    <Text style={styles.gridValue}>{stats.rating >= 4.5 ? '98%' : '92%'}</Text>
                                     <Text style={styles.gridLabel}>Satisfaction</Text>
                                 </View>
                                 <View style={styles.vDivider} />

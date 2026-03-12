@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { View, Text, FlatList, TouchableOpacity, RefreshControl, Image, Dimensions, StatusBar, ScrollView, StyleSheet, Platform, Alert } from 'react-native';
+import { View, Text, FlatList, TouchableOpacity, RefreshControl, Image, Dimensions, StatusBar, ScrollView, StyleSheet, Platform, Alert, Animated } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { 
   Globe, Package, Zap, ChevronRight, Activity, Clock, ShieldAlert, Target, Trophy, MapPin, 
@@ -29,19 +29,25 @@ const MapPlaceholder = () => (
     </View>
 );
 
-const TimerBadge = React.memo(({ isOnline }) => {
+const TimerBadge = React.memo(({ isOnline, shiftStartTime }) => {
   const [seconds, setSeconds] = useState(0);
   const { t } = useTranslation();
 
   useEffect(() => {
-      let timer;
-      if (isOnline) {
-          timer = setInterval(() => setSeconds(s => s + 1), 1000);
-      } else {
-          setSeconds(0);
-      }
-      return () => clearInterval(timer);
-  }, [isOnline]);
+    let timer;
+    if (isOnline) {
+        // Initial sync
+        const update = () => {
+            const start = shiftStartTime || Date.now();
+            setSeconds(Math.floor((Date.now() - start) / 1000));
+        };
+        update();
+        timer = setInterval(update, 1000);
+    } else {
+        setSeconds(0);
+    }
+    return () => clearInterval(timer);
+  }, [isOnline, shiftStartTime]);
 
   if (!isOnline) return null;
 
@@ -74,9 +80,23 @@ export default function DriverHomeScreen({ navigation }) {
   const [shiftStartTime, setShiftStartTime] = useState(null);
   const [incomingMission, setIncomingMission] = useState(null);
   const [showMissionModal, setShowMissionModal] = useState(false);
+  const [isReady, setIsReady] = useState(false);
   const mapRef = useRef(null);
 
-  // Animation pulse disabled for stability testing
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+  
+  useEffect(() => {
+    if (driver?.isOnline) {
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(pulseAnim, { toValue: 1.5, duration: 1500, useNativeDriver: true }),
+          Animated.timing(pulseAnim, { toValue: 1, duration: 1500, useNativeDriver: true }),
+        ])
+      ).start();
+    } else {
+      pulseAnim.setValue(1);
+    }
+  }, [driver?.isOnline]);
 
   const calculateDistance = (lat1, lon1, lat2, lon2) => {
     if (!lat1 || !lon1 || !lat2 || !lon2) return null;
@@ -134,22 +154,33 @@ export default function DriverHomeScreen({ navigation }) {
   const loadDriver = async () => {
     try {
       const raw = await AsyncStorage.getItem('movex_user');
+      const savedStart = await AsyncStorage.getItem('movex_shift_start');
+      
       if (raw) {
           const parsed = JSON.parse(raw);
           setDriver(parsed);
+          
+          if (savedStart) {
+              setShiftStartTime(parseInt(savedStart));
+          }
+
           if (parsed.isOnline) {
             try {
-              // SECURITY: Drastically delayed start (5 seconds) to ensure Dashboard is fully stable
-              // and Map WebView has loaded.
-              setTimeout(() => {
-                  console.log('[DASHBOARD] Stabilizing Telemetry...');
-                  startBackgroundLocationUpdates().catch(e => console.error('BG_LOC_CRASH:', e));
-              }, 5000);
+              // Priority 0: Only start if we are in an APK/Standalone environment
+              if (Platform.OS === 'android') {
+                  setTimeout(() => {
+                      console.log('[DASHBOARD] Initializing telemetry with safety delay...');
+                      startBackgroundLocationUpdates().catch(e => {
+                          console.log('Background startup prevented crash:', e);
+                      });
+                  }, 8000); // 8 second safety grace period
+              }
             } catch (err) {
               console.log('Background task start error');
             }
           }
       }
+      setIsReady(true);
 
       const servicesEnabled = await Location.hasServicesEnabledAsync().catch(() => false);
       if (!servicesEnabled) {
@@ -284,9 +315,12 @@ export default function DriverHomeScreen({ navigation }) {
       
       if (isOnline) {
           startBackgroundLocationUpdates();
-          setShiftStartTime(Date.now());
+          const now = Date.now();
+          setShiftStartTime(now);
+          await AsyncStorage.setItem('movex_shift_start', String(now));
       } else {
           stopBackgroundLocationUpdates();
+          await AsyncStorage.removeItem('movex_shift_start');
           setShowShiftSummary(true);
       }
     } catch (_) {}
@@ -353,19 +387,44 @@ export default function DriverHomeScreen({ navigation }) {
               </View>
           )}
 
-      <MapPlaceholder />
+      {isReady ? (
+          <MoveXMap 
+              style={StyleSheet.absoluteFill}
+              driverLocation={currentLocation ? { lat: currentLocation.latitude, lng: currentLocation.longitude } : null}
+              polygons={showHeatmap ? heatmap.map(h => ({
+                  coordinates: h3.cellToBoundary(h.hex).map(c => ({ latitude: c[0], longitude: c[1] })),
+                  fillColor: getHeatmapColor(h.count),
+                  strokeColor: '#fff',
+                  strokeWidth: 1
+              })) : []}
+              markers={orders.map(o => ({
+                  latitude: o.pickupCoords?.lat,
+                  longitude: o.pickupCoords?.lng,
+                  title: `Order: ₹${o.price || 0}`
+              }))}
+          />
+      ) : (
+          <MapPlaceholder />
+      )}
 
       <SafeAreaView style={styles.overlayContainer}>
           <View style={styles.header}>
               <TouchableOpacity 
-                onPress={() => navigation.navigate('DriverProfile')} 
-                style={styles.profileButton}
+                  onPress={() => navigation.navigate('DriverProfile')}
+                  activeOpacity={0.7}
+                  style={styles.profileButton}
               >
-                  <Image source={{ uri: driver?.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${driver?._id}` }} style={styles.avatar} />
-                  <View style={[styles.statusDot, { backgroundColor: driver?.isOnline ? '#10B981' : '#EF4444' }]} />
+                  <Image source={{ uri: driver?.avatar || 'https://api.dicebear.com/7.x/avataaars/png?seed=Driver' }} style={styles.avatar} />
+                  <Animated.View style={[
+                      styles.statusDot, 
+                      { 
+                          backgroundColor: driver?.isOnline ? '#10B981' : '#EF4444',
+                          transform: [{ scale: driver?.isOnline ? pulseAnim : 1 }]
+                      }
+                  ]} />
               </TouchableOpacity>
 
-                  <TimerBadge isOnline={driver?.isOnline} />
+                  <TimerBadge isOnline={driver?.isOnline} shiftStartTime={shiftStartTime} />
 
               <View style={styles.headerControls}>
                   <TouchableOpacity onPress={handleSOS} style={[styles.controlButton, { borderColor: '#ef4444' }]}>
