@@ -65,14 +65,24 @@ export default function VehicleDocumentsScreen({ navigation }) {
           });
 
           if (uploadRes.data.success) {
-              const updateData = type === 'registration' ? { kycLicenseUrl: uploadRes.data.url } : { kycIdUrl: uploadRes.data.url };
-              await api.patch('/auth/profile', updateData);
+              const url = uploadRes.data.url;
+              const updateData = type === 'registration' ? { kycLicenseUrl: url } : { kycIdUrl: url };
               
-              setDocs(prev => ({
-                ...prev,
-                [type]: { ...prev[type], status: 'VERIFIED', uri: uploadRes.data.url }
-              }));
-              Alert.alert('Success', 'Document updated successfully!');
+              const updateRes = await api.put('/auth/profile', updateData);
+              if (updateRes.data.success) {
+                  // Update local session
+                  const userData = await AsyncStorage.getItem('movex_user');
+                  if (userData) {
+                      const updatedUser = { ...JSON.parse(userData), ...updateData };
+                      await AsyncStorage.setItem('movex_user', JSON.stringify(updatedUser));
+                  }
+                  
+                  setDocs(prev => ({
+                    ...prev,
+                    [type]: { ...prev[type], status: 'VERIFIED', uri: url }
+                  }));
+                  Alert.alert('Success', 'Document uploaded and synchronized with MoveX Command.');
+              }
           }
       } catch (err) {
           Alert.alert('Error', 'Upload failed. Please try again.');

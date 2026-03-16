@@ -14,11 +14,21 @@ export default function KYCVerificationScreen({ navigation }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Simulate fetching KYC status
-    setTimeout(() => {
-      setStatus('PENDING');
-      setLoading(false);
-    }, 1000);
+    const fetchStatus = async () => {
+      try {
+        const raw = await AsyncStorage.getItem('movex_user');
+        if (raw) {
+          const user = JSON.parse(raw);
+          // status is mapped from user.status (pending, verified/available, rejected)
+          const mappedStatus = user.status === 'pending' ? 'PENDING' : 
+                               (user.status === 'rejected' ? 'REJECTED' : 'VERIFIED');
+          setStatus(mappedStatus);
+        }
+      } catch (e) {} finally {
+        setLoading(false);
+      }
+    };
+    fetchStatus();
   }, []);
 
   const kycSteps = [

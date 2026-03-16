@@ -40,7 +40,7 @@ const MoveXMap = ({
             maxZoom: 19
           }).addTo(map);
 
-          const bounds = [];
+          let pickupMarker, destMarker, driverMarker, polyline;
           
           // Heatmap Polygons
           const heatmapData = ${JSON.stringify(safePolygons)};
@@ -62,7 +62,6 @@ const MoveXMap = ({
                   iconSize: [20, 20]
               });
               L.marker([m.latitude, m.longitude], { icon }).addTo(map);
-              bounds.push([m.latitude, m.longitude]);
           });
 
           if (${JSON.stringify(pickup || null)}) {
@@ -72,37 +71,63 @@ const MoveXMap = ({
                   html: '<div style="background:#2563EB;width:12px;height:12px;border-radius:50%;border:2px solid white;"></div>',
                   iconSize: [12, 12]
                 });
-                L.marker([p.lat, p.lng], { icon }).addTo(map);
-                bounds.push([p.lat, p.lng]);
+                pickupMarker = L.marker([p.lat, p.lng], { icon }).addTo(map);
             }
           }
 
-          if (${JSON.stringify(driverLocation || null)}) {
-            const dl = ${JSON.stringify(driverLocation)};
-            if (dl && dl.lat) {
+          if (${JSON.stringify(destination || null)}) {
+            const d = ${JSON.stringify(destination)};
+            if (d && d.lat) {
                 const icon = L.divIcon({
-                  html: '<div style="background:#10B981;width:16px;height:16px;border-radius:50%;border:2px solid white;box-shadow:0 0 10px #10B981;"></div>',
-                  iconSize: [16, 16]
+                  html: '<div style="background:#EF4444;width:12px;height:12px;border-radius:50%;border:2px solid white;"></div>',
+                  iconSize: [12, 12]
                 });
-                L.marker([dl.lat, dl.lng], { icon }).addTo(map);
-                bounds.push([dl.lat, dl.lng]);
+                destMarker = L.marker([d.lat, d.lng], { icon }).addTo(map);
             }
           }
 
-          const routeData = ${JSON.stringify(route || [])};
-          if (routeData && routeData.length > 0) {
-            const normalizedRoute = routeData.map(c => {
-                if (Array.isArray(c)) return c;
-                if (c.latitude !== undefined) return [c.latitude, c.longitude];
-                if (c.lat !== undefined) return [c.lat, c.lng];
-                return c;
-            });
-            L.polyline(normalizedRoute, {color: '#2563EB', weight: 4}).addTo(map);
-          }
+          // Function to update map based on new data
+          window.updateMap = (data) => {
+            if (driverMarker && data.driver) {
+              driverMarker.setLatLng([data.driver.lat, data.driver.lng]);
+            } else if (!driverMarker && data.driver) {
+              const icon = L.divIcon({
+                html: '<div style="background:#10B981;width:16px;height:16px;border-radius:50%;border:2px solid white;box-shadow:0 0 10px #10B981;"></div>',
+                iconSize: [16, 16]
+              });
+              driverMarker = L.marker([data.driver.lat, data.driver.lng], { icon }).addTo(map);
+            }
 
-          if (bounds.length > 0) {
-            map.fitBounds(bounds, { padding: [50, 50] });
-          }
+            if (data.routeLine && data.routeLine.length > 0) {
+              if (polyline) map.removeLayer(polyline);
+              const normalized = data.routeLine.map(c => {
+                  if (Array.isArray(c)) return [c[0], c[1]];
+                  if (c.latitude !== undefined) return [c.latitude, c.longitude];
+                  if (c.lat !== undefined) return [c.lat, c.lng];
+                  return c;
+              });
+              polyline = L.polyline(normalized, { color: '#2563EB', weight: 4 }).addTo(map);
+              
+              // If we have a driver, follow them more closely
+              if (data.driver) {
+                 const driverPos = [data.driver.lat, data.driver.lng];
+                 const nextPoints = normalized.slice(0, 5); 
+                 const focusGroup = L.featureGroup([L.marker(driverPos), ...nextPoints.map(p => L.marker(p))]);
+                 map.fitBounds(focusGroup.getBounds(), { padding: [80, 80], maxZoom: 16 });
+              } else {
+                 map.fitBounds(polyline.getBounds(), { padding: [50, 50] });
+              }
+            } else if (data.driver) {
+                map.panTo([data.driver.lat, data.driver.lng]);
+            }
+          };
+
+          // Initial rendering
+          window.updateMap({
+            driver: ${JSON.stringify(driverLocation || null)},
+            routeLine: ${JSON.stringify(route || [])}
+          });
+
         } catch (e) {
           console.error('JS Map Error:', e);
         }

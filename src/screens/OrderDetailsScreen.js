@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, Alert, Image, TextInput, Dimensions, StatusBar, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, Alert, Image, TextInput, Dimensions, StatusBar, StyleSheet, Linking, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MapPin, Phone, MessageSquare, Clock, ChevronRight, User, Star, Package, Shield, Target, Plus, Camera, Send, CheckCircle, ShieldAlert, ChevronLeft, Truck, X, Navigation as NavIcon } from 'lucide-react-native';
 import api, { SOCKET_URL } from '../services/api';
@@ -174,6 +174,29 @@ export default function OrderDetailsScreen({ route, navigation }) {
       if (!result.canceled) {
           setEvidenceImage(result.assets[0].uri);
       }
+  };
+
+  const handleStartNavigation = () => {
+      const coords = (order.status === 'ARRIVED' || order.status === 'ACCEPTED' || order.status === 'ASSIGNED')
+          ? order.pickupCoords 
+          : order.destinationCoords;
+      
+      const label = (order.status === 'ARRIVED' || order.status === 'ACCEPTED' || order.status === 'ASSIGNED')
+          ? 'Pickup Location'
+          : 'Drop Location';
+
+      if (!coords || !coords.lat) {
+          return Alert.alert('Error', 'Location coordinates not available for this mission.');
+      }
+
+      const url = Platform.select({
+          ios: `maps:0,0?q=${coords.lat},${coords.lng}`,
+          android: `geo:0,0?q=${coords.lat},${coords.lng}(${label})`,
+      });
+
+      Linking.openURL(url).catch(() => {
+          Alert.alert('Error', 'Could not open maps application. Please ensure Google Maps is installed.');
+      });
   };
 
   const sendMessage = async () => {
@@ -384,14 +407,24 @@ export default function OrderDetailsScreen({ route, navigation }) {
         {order.status !== 'DELIVERED' && order.status !== 'CANCELLED' && order.status !== 'PENDING' && (
             <TouchableOpacity 
                 style={styles.navigationLink} 
-                onPress={() => navigation.navigate('Map', { order })}
+                onPress={() => {
+                    Alert.alert(
+                        'Mission Navigation',
+                        'How would you like to navigate?',
+                        [
+                            { text: 'External Maps (Google/Waze)', onPress: handleStartNavigation },
+                            { text: 'Internal System Map', onPress: () => navigation.navigate('Map', { order }) },
+                            { text: 'Cancel', style: 'cancel' }
+                        ]
+                    );
+                }}
             >
-                <View style={styles.navIconBox}>
+                <View style={[styles.navIconBox, { backgroundColor: '#2563EB' }]}>
                     <NavIcon size={18} color="#fff" />
                 </View>
                 <View style={styles.navInfo}>
-                    <Text style={styles.navTitle}>{t('live_navigation', 'Live Navigation')}</Text>
-                    <Text style={styles.navSubText}>{t('smart_routing', 'Get the fastest route')}</Text>
+                    <Text style={styles.navTitle}>{t('navigation_ready', 'Start Navigation')}</Text>
+                    <Text style={styles.navSubText}>{t('open_external_maps', 'Tap to open Google Maps or System Map')}</Text>
                 </View>
                 <ChevronRight size={20} color="#fff" />
             </TouchableOpacity>

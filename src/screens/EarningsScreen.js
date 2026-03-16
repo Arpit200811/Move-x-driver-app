@@ -64,19 +64,22 @@ export default function EarningsScreen({ navigation }) {
 
   const handlePayoutRequest = async () => {
       const balance = parseFloat(earnings?.walletBalance || 0);
-      if (balance < MIN_PAYOUT) return Alert.alert('Threshold Denied', `Minimum payout threshold is $${MIN_PAYOUT}.`);
+      if (balance < MIN_PAYOUT) return Alert.alert('Threshold Denied', `Minimum payout threshold is ₹${MIN_PAYOUT}.`);
       setPayoutModal(true);
   };
 
   const submitPayout = async () => {
       if (!bankDetails) return Alert.alert('Missing Info', 'Please enter your bank or UPI details.');
       try {
-          await api.post('/wallet/payout-request', { amount: earnings?.walletBalance });
+          await api.post('/wallet/payout-request', { 
+              amount: earnings?.walletBalance,
+              bankDetails: bankDetails
+          });
           Alert.alert('Success', 'Payout initiated. Funds will arrive in 2-3 business days.');
           setPayoutModal(false);
           fetchData();
       } catch (e) {
-          Alert.alert('Error', 'Request failed.');
+          Alert.alert('Request Failed', e.response?.data?.message || 'Contact support.');
       }
   };
 
@@ -90,7 +93,7 @@ export default function EarningsScreen({ navigation }) {
         <Text style={styles.transactionDate}>{new Date(item.createdAt).toLocaleDateString()}</Text>
       </View>
       <Text style={[styles.transactionAmount, { color: item.amount > 0 ? '#10B981' : '#EF4444' }]}>
-        {item.amount > 0 ? '+' : ''}${Math.abs(item.amount).toFixed(2)}
+        {item.amount > 0 ? '+' : ''}₹{Math.abs(item.amount).toFixed(2)}
       </Text>
     </View>
   );
@@ -121,7 +124,7 @@ export default function EarningsScreen({ navigation }) {
         <View style={styles.balanceBox}>
             <Text style={styles.balanceLabel}>{t('account_balance', 'Account Balance')}</Text>
             <View style={styles.balanceRow}>
-                <Text style={styles.currencySymbol}>$</Text>
+                <Text style={styles.currencySymbol}>₹</Text>
                 <Text style={styles.balanceValue}>{earnings?.walletBalance || '0.00'}</Text>
             </View>
         </View>
@@ -136,7 +139,7 @@ export default function EarningsScreen({ navigation }) {
         <View style={styles.statsCard}>
             <View style={styles.statItemLeft}>
                 <Text style={styles.statLabel}>TODAY</Text>
-                <Text style={styles.statValue}>+${earnings?.today || '0'}</Text>
+                <Text style={styles.statValue}>+₹{earnings?.today || '0'}</Text>
             </View>
             <View style={styles.statItemRight}>
                 <Text style={styles.statLabel}>TOTAL TASKS</Text>
